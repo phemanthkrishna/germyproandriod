@@ -118,7 +118,15 @@ export default function WorkerJobs() {
   async function toggleOnline() {
     if (!workerInfo) return
     const newVal = !workerInfo.is_online
-    const { error } = await supabase.from('workers').update({ is_online: newVal }).eq('id', workerInfo.id)
+    const update: Record<string, unknown> = {
+      is_online: newVal,
+      last_active_at: new Date().toISOString(),
+    }
+    // Going online resets the offline timer
+    if (newVal) update.went_offline_at = null
+    else update.went_offline_at = new Date().toISOString()
+
+    const { error } = await supabase.from('workers').update(update).eq('id', workerInfo.id)
     if (error) { toast.error(error.message); return }
     setWorkerInfo(w => w ? { ...w, is_online: newVal } : w)
     toast.success(newVal ? 'You are now Online' : 'You are now Offline')

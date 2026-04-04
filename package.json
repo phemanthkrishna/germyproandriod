@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.1.0",
+    "@capacitor-firebase/messaging": "^8.2.0",
     "@capacitor/core": "^8.3.0",
     "@hookform/resolvers": "^3.9.0",
     "@react-google-maps/api": "^2.20.8",

@@ -96,6 +96,11 @@ export default function JobDetail() {
       return
     }
     setSaving(true)
+    // Touch last_active_at so the 4-hour inactivity timer resets
+    await supabase.from('workers')
+      .update({ last_active_at: new Date().toISOString() })
+      .eq('id', session.id)
+
     const { error } = await supabase.from('orders').update({
       worker_id: session.id,
       worker_name: session.name,
