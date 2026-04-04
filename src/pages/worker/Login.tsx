@@ -49,7 +49,7 @@ export default function WorkerLogin() {
 
   async function handleSendOtp() {
     if (phone.length !== 10 || !/^[6-9]/.test(phone)) return toast.error('Enter a valid 10-digit Indian mobile number')
-    if (!verifierRef.current) return toast.error('reCAPTCHA not ready, refresh the page')
+    if (!verifierRef.current && !(window as any)?.Capacitor?.isNativePlatform?.()) return toast.error('reCAPTCHA not ready, refresh the page')
     setLoading(true)
     try {
       const { data: worker, error: workerLookupError } = await supabase
@@ -79,15 +79,11 @@ export default function WorkerLogin() {
 
   async function handleVerifyOtp() {
     if (otp.length < 6) return toast.error('Enter 6-digit OTP')
-    if (!confirmationResult) return toast.error('Please request OTP first')
+    const isNative = !!(window as any)?.Capacitor?.isNativePlatform?.()
+    if (!confirmationResult && !isNative) return toast.error('Please request OTP first')
     setLoading(true)
     try {
-      const ok = await verifyOtp(confirmationResult, otp)
-      if (!ok) {
-        toast.error('Wrong OTP')
-        setLoading(false)
-        return
-      }
+      await verifyOtp(confirmationResult, otp)
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')

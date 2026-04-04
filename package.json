@@ -23,6 +23,8 @@
     "icons": "node scripts/generate-icons.js"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.1.0",
+    "@capacitor/core": "^8.3.0",
     "@hookform/resolvers": "^3.9.0",
     "@react-google-maps/api": "^2.20.8",
     "@supabase/supabase-js": "^2.45.0",

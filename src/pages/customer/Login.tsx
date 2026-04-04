@@ -51,7 +51,7 @@ export default function CustomerLogin() {
   async function handleSendOtp() {
     if (!name.trim()) return toast.error('Enter your name')
     if (phone.length !== 10 || !/^[6-9]/.test(phone)) return toast.error('Enter a valid 10-digit Indian mobile number')
-    if (!verifierRef.current) return toast.error('reCAPTCHA not ready, refresh the page')
+    if (!verifierRef.current && !(window as any)?.Capacitor?.isNativePlatform?.()) return toast.error('reCAPTCHA not ready, refresh the page')
     setLoading(true)
     try {
       const result = await sendOtp(phone, verifierRef.current)
@@ -67,15 +67,11 @@ export default function CustomerLogin() {
 
   async function handleVerifyOtp() {
     if (otp.length < 6) return toast.error('Enter 6-digit OTP')
-    if (!confirmationResult) return toast.error('Please request OTP first')
+    const isNative = !!(window as any)?.Capacitor?.isNativePlatform?.()
+    if (!confirmationResult && !isNative) return toast.error('Please request OTP first')
     setLoading(true)
     try {
-      const ok = await verifyOtp(confirmationResult, otp)
-      if (!ok) {
-        toast.error('Wrong OTP, try again')
-        setLoading(false)
-        return
-      }
+      await verifyOtp(confirmationResult, otp)
 
       const { data: existing, error: fetchError } = await supabase
         .from('profiles')

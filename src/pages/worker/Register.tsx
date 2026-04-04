@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { OtpInput } from '../../components/OtpInput'
 import { useAuth } from '../../context/AuthContext'
-import { createRecaptchaVerifier, sendOtp, verifyOtp, type ConfirmationResult, type RecaptchaVerifier } from '../../lib/firebaseOtp'
+import { createRecaptchaVerifier, sendOtp, verifyOtp, firebaseAuthMessage, type ConfirmationResult, type RecaptchaVerifier } from '../../lib/firebaseOtp'
 import { supabase } from '../../lib/supabase'
 import { generateWorkerCode } from '../../lib/utils'
 import { Camera, IdCard, CheckCircle2 } from 'lucide-react'
@@ -71,29 +71,29 @@ export default function WorkerRegister() {
     if (!name.trim()) return toast.error('Enter your name')
     if (serviceCategories.length === 0) return toast.error('Select at least one service')
     if (phone.length !== 10 || !/^[6-9]/.test(phone)) return toast.error('Enter a valid 10-digit Indian mobile number')
-    if (!verifierRef.current) return toast.error('reCAPTCHA not ready, refresh the page')
+    if (!verifierRef.current && !(window as any)?.Capacitor?.isNativePlatform?.()) return toast.error('reCAPTCHA not ready, refresh the page')
     setLoading(true)
     try {
       const result = await sendOtp(phone, verifierRef.current)
       setConfirmationResult(result)
       setStep('otp')
       toast.success('OTP sent!')
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to send OTP')
+    } catch (e: unknown) {
+      toast.error(firebaseAuthMessage(e))
     }
     setLoading(false)
   }
 
   async function handleVerifyOtp() {
     if (otp.length < 6) return toast.error('Enter 6-digit OTP')
-    if (!confirmationResult) return toast.error('Please request OTP first')
+    const isNative = !!(window as any)?.Capacitor?.isNativePlatform?.()
+    if (!confirmationResult && !isNative) return toast.error('Please request OTP first')
     setLoading(true)
     try {
-      const ok = await verifyOtp(confirmationResult, otp)
-      if (!ok) { toast.error('Wrong OTP'); setLoading(false); return }
+      await verifyOtp(confirmationResult, otp)
       setStep('aadhaar')
-    } catch (e: any) {
-      toast.error(e.message || 'Verification failed')
+    } catch (e: unknown) {
+      toast.error(firebaseAuthMessage(e))
     }
     setLoading(false)
   }
