@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useOrder } from '../../hooks/useOrders'
@@ -34,15 +34,35 @@ export default function JobDetail() {
       .then(({ data }) => setHasActiveJob((data?.length ?? 0) > 0))
   }, [session?.id])
 
-  // Broadcast live GPS while en route to customer
-  const isEnRoute = order?.worker_id === session?.id && order?.status === 'booked'
-  useWorkerLocation(session?.id ?? '', isEnRoute)
+  // Broadcast live GPS while en route AND while on the job
+  const isTracking = order?.worker_id === session?.id &&
+    ['booked', 'inspecting', 'in_progress', 'material_collected', 'done_uploaded'].includes(order?.status ?? '')
+  useWorkerLocation(session?.id ?? '', isTracking)
 
   // OTP rate-limiting state (5 attempts → 60s lockout per OTP type)
   const [arrivalAttempts, setArrivalAttempts] = useState(0)
   const [arrivalLockedUntil, setArrivalLockedUntil] = useState<number | null>(null)
   const [compAttempts, setCompAttempts] = useState(0)
   const [compLockedUntil, setCompLockedUntil] = useState<number | null>(null)
+  const arrivalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const compTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Auto-clear lockout after 60s so the button re-enables
+  useEffect(() => {
+    if (!arrivalLockedUntil) return
+    const ms = arrivalLockedUntil - Date.now()
+    if (ms <= 0) { setArrivalLockedUntil(null); return }
+    arrivalTimerRef.current = setTimeout(() => setArrivalLockedUntil(null), ms)
+    return () => { if (arrivalTimerRef.current) clearTimeout(arrivalTimerRef.current) }
+  }, [arrivalLockedUntil])
+
+  useEffect(() => {
+    if (!compLockedUntil) return
+    const ms = compLockedUntil - Date.now()
+    if (ms <= 0) { setCompLockedUntil(null); return }
+    compTimerRef.current = setTimeout(() => setCompLockedUntil(null), ms)
+    return () => { if (compTimerRef.current) clearTimeout(compTimerRef.current) }
+  }, [compLockedUntil])
 
   const [arrivalOtp, setArrivalOtp] = useState('')
   const [compOtp, setCompOtp] = useState('')
@@ -80,10 +100,14 @@ export default function JobDetail() {
       worker_id: session.id,
       worker_name: session.name,
       worker_phone: session.phone,
-      status: 'booked', // stays booked until arrival OTP entered
-    }).eq('id', order!.id)
-    if (error) toast.error(error.message)
-    else { toast.success('Job accepted! Head to the customer 🚗'); refetch() }
+      status: 'booked',
+    }).eq('id', order!.id).is('worker_id', null) // only if still unassigned
+    if (error) {
+      toast.error('Could not accept job — it may have already been taken')
+    } else {
+      toast.success('Job accepted! Head to the customer 🚗')
+      refetch()
+    }
     setSaving(false)
   }
 
@@ -500,7 +524,7 @@ export default function JobDetail() {
               ) : (
                 <>
                   <Upload className="mx-auto text-slate-500 mb-2" size={24} />
-                  <p className="text-slate-400 text-sm">Tap to upload after photo</p>
+                  <p className="text-slate-400 text-sm">Tap to upload completion photo</p>
                 </>
               )}
             </div>

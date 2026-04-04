@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { createRecaptchaVerifier, sendOtp, verifyOtp, firebaseAuthMessage, type ConfirmationResult, type RecaptchaVerifier } from '../../lib/firebaseOtp'
 import { supabase } from '../../lib/supabase'
 import { generateWorkerCode } from '../../lib/utils'
-import { Camera, IdCard, CheckCircle2 } from 'lucide-react'
+import { Camera, IdCard, CheckCircle2, ArrowLeft } from 'lucide-react'
 
 const STEPS = ['info', 'otp', 'aadhaar', 'docs', 'photo'] as const
 type Step = typeof STEPS[number]
@@ -25,7 +25,6 @@ export default function WorkerRegister() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null)
   const verifierRef = useRef<RecaptchaVerifier | null>(null)
 
-  const [aadhaarNumber, setAadhaarNumber] = useState('')
   const [upiId, setUpiId] = useState('')
   const [workerAddress, setWorkerAddress] = useState('')
   const [experienceYears, setExperienceYears] = useState('')
@@ -182,7 +181,6 @@ export default function WorkerRegister() {
         phone,
         service: serviceCategories[0],
         service_categories: serviceCategories,
-        aadhaar_url: aadhaarNumber.replace(/\s/g, ''),
         aadhaar_front_url: aadhaarFrontUrl,
         aadhaar_back_url: aadhaarBackUrl,
         photo_url: photoUrl,
@@ -213,7 +211,9 @@ export default function WorkerRegister() {
       {/* invisible reCAPTCHA container — must stay in DOM */}
       <div id="recaptcha-container" />
 
-      <button onClick={() => navigate('/')} className="text-slate-400 mb-6">← Back</button>
+      <button onClick={() => navigate(-1 as any)} className="text-[var(--muted)] mb-6 flex items-center gap-1 text-sm w-fit">
+        <ArrowLeft size={18} /> Back
+      </button>
 
       {/* Progress */}
       <div className="flex gap-2 mb-8">
@@ -294,21 +294,8 @@ export default function WorkerRegister() {
 
       {step === 'aadhaar' && (
         <>
-          <h1 className="text-2xl font-black font-heading text-slate-50 mb-2">Aadhaar Verification</h1>
-          <p className="text-slate-400 mb-6">Enter your 12-digit Aadhaar number</p>
-          <Input
-            label="Aadhaar Number"
-            placeholder="XXXX XXXX XXXX"
-            type="tel"
-            inputMode="numeric"
-            maxLength={14}
-            value={aadhaarNumber}
-            onChange={e => {
-              const digits = e.target.value.replace(/\D/g, '').slice(0, 12)
-              setAadhaarNumber(digits.replace(/(\d{4})(?=\d)/g, '$1 '))
-            }}
-          />
-          <p className="text-slate-600 text-xs mt-2 mb-4">Stored securely for admin verification only.</p>
+          <h1 className="text-2xl font-black font-heading text-slate-50 mb-2">Worker Details</h1>
+          <p className="text-slate-400 mb-6">Fill in your details to complete registration</p>
           <Input
             label="UPI ID (for receiving payments)"
             placeholder="yourname@upi or phone@bank"
@@ -346,7 +333,6 @@ export default function WorkerRegister() {
             size="lg"
             variant="accent"
             onClick={() => {
-              if (aadhaarNumber.replace(/\s/g, '').length !== 12) return toast.error('Enter valid 12-digit Aadhaar number')
               if (!workerAddress.trim()) return toast.error('Enter your address')
               if (!experienceYears) return toast.error('Select your years of experience')
               setStep('docs')
@@ -359,8 +345,8 @@ export default function WorkerRegister() {
 
       {step === 'docs' && (
         <>
-          <h1 className="text-2xl font-black font-heading text-slate-50 mb-2">Aadhaar Card Photos</h1>
-          <p className="text-slate-400 mb-6">Upload clear photos of both sides of your Aadhaar card</p>
+          <h1 className="text-2xl font-black font-heading text-slate-50 mb-2">Aadhaar Card</h1>
+          <p className="text-slate-400 mb-6">Upload clear photos of both sides — admin will verify your identity</p>
 
           {/* Front side */}
           <div className="mb-5">

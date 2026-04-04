@@ -203,10 +203,15 @@ export default function WorkerProfile() {
                 <Copy size={14} /> Copy
               </button>
               <button
-                onClick={() => navigator.share?.({
-                  title: 'Book me on GetMyPro',
-                  text: `Use my worker code ${worker.worker_code} to request me directly when booking on GetMyPro!`,
-                })}
+                onClick={() => {
+                  const text = `Use my worker code ${worker.worker_code} to request me directly when booking on GetMyPro!`
+                  if (navigator.share) {
+                    navigator.share({ title: 'Book me on GetMyPro', text })
+                  } else {
+                    navigator.clipboard.writeText(text)
+                    toast.success('Share text copied!')
+                  }
+                }}
                 className="flex items-center gap-1 text-green-400 text-xs font-semibold"
               >
                 <Share2 size={14} /> Share

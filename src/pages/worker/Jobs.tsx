@@ -65,9 +65,13 @@ export default function WorkerJobs() {
       .channel('available-jobs')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => fetchAvailable())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => fetchAvailable())
-      // Re-evaluate preferred visibility when any worker goes online/offline
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workers' }, () => fetchAvailable())
-      .subscribe()
+      .subscribe(status => {
+        // Reconnect if the channel drops
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setTimeout(() => fetchAvailable(), 3000)
+        }
+      })
     return () => { supabase.removeChannel(channel) }
   }, [])
 
@@ -142,15 +146,25 @@ export default function WorkerJobs() {
 
       {/* Pending verification banner */}
       {workerInfo && !isVerified && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4 text-amber-400 text-sm">
-          ⏳ Pending verification — jobs visible after admin approves
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-4">
+          <p className="text-amber-400 font-bold text-sm mb-1">⏳ Verification Pending</p>
+          <p className="text-amber-400/80 text-xs leading-relaxed">
+            Our admin team is reviewing your Aadhaar and profile photo. You'll be able to accept jobs as soon as you're approved — usually within 24 hours.
+          </p>
         </div>
       )}
 
       {/* Offline banner */}
       {workerInfo && isVerified && !workerInfo.is_online && (
-        <div className="bg-slate-700/50 border border-slate-600 rounded-xl p-3 mb-4 text-slate-400 text-sm">
-          You're offline — toggle online to see available jobs
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 mb-4">
+          <p className="text-[var(--text)] font-bold text-sm mb-1">You're Offline</p>
+          <p className="text-[var(--muted)] text-xs mb-3">Tap the Online button above to start receiving job requests in your area.</p>
+          <button
+            onClick={toggleOnline}
+            className="w-full bg-green-500 text-white font-bold text-sm rounded-xl py-2.5"
+          >
+            Go Online Now
+          </button>
         </div>
       )}
 
@@ -189,31 +203,24 @@ export default function WorkerJobs() {
       {/* ── Mini Progress Bar ──────────────────────────────────────── */}
       <button
         onClick={() => navigate('/worker/progress')}
-        className="-mx-5 mb-4 flex items-center gap-2 px-5 w-[calc(100%+40px)] text-left"
-        style={{ height: 48, background: '#FFF7ED', borderBottom: '1px solid #FDE8C8', border: 'none', cursor: 'pointer' }}
+        className="-mx-5 mb-4 flex items-center gap-2 px-5 w-[calc(100%+40px)] text-left h-12 bg-[#E85520]/10 border-b border-[#E85520]/20"
       >
-        <span style={{ fontSize: 20, flexShrink: 0 }}>{currentBadge?.icon ?? '🔧'}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#92400E', flexShrink: 0, whiteSpace: 'nowrap' }}>
+        <span className="text-xl shrink-0">{currentBadge?.icon ?? '🔧'}</span>
+        <span className="text-xs font-bold text-[#E85520] shrink-0 whitespace-nowrap">
           {currentBadge?.badge ?? 'Start!'}
         </span>
-        <div style={{ flex: 1, height: 6, borderRadius: 20, background: '#E5E7EB', overflow: 'hidden', margin: '0 4px' }}>
+        <div className="flex-1 h-1.5 rounded-full bg-[var(--border)] overflow-hidden mx-1">
           <div
-            style={{
-              height: '100%',
-              borderRadius: 20,
-              background: '#F47820',
-              width: barAnimated ? `${progressToNext}%` : '0%',
-              transition: 'width 1s ease',
-              minWidth: progressToNext > 0 ? 4 : 0,
-            }}
+            className="h-full rounded-full bg-[#E85520] transition-all duration-1000 ease-out"
+            style={{ width: barAnimated ? `${progressToNext}%` : '0%', minWidth: progressToNext > 0 ? 4 : 0 }}
           />
         </div>
         {nextMilestone ? (
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#F47820', flexShrink: 0, whiteSpace: 'nowrap' }}>
+          <span className="text-[11px] font-bold text-[#E85520] shrink-0 whitespace-nowrap">
             {nextMilestone.job - completedJobs} to {nextMilestone.badge} →
           </span>
         ) : (
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#8B5CF6', flexShrink: 0 }}>
+          <span className="text-[11px] font-bold text-purple-400 shrink-0">
             👑 Legend!
           </span>
         )}

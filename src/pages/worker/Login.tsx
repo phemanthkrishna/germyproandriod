@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { ArrowLeft } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { OtpInput } from '../../components/OtpInput'
@@ -109,8 +110,8 @@ export default function WorkerLogin() {
 
   return (
     <div className="min-h-dvh flex flex-col px-5 py-8 bg-[var(--bg)]">
-      <button onClick={() => navigate('/')} className="text-[var(--muted)] mb-6 text-sm flex items-center gap-1 w-fit">
-        ← Back
+      <button onClick={() => navigate(-1 as any)} className="text-[var(--muted)] mb-6 text-sm flex items-center gap-1 w-fit">
+        <ArrowLeft size={18} /> Back
       </button>
 
       {/* Logo */}
