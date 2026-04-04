@@ -106,33 +106,6 @@ export default function AdminOrderDetail() {
   }
 
 
-  async function confirmFinalPayment() {
-    if (!order!.upi_final_ref?.trim()) {
-      toast.error('Cannot confirm — no UTR/transaction reference on file')
-      return
-    }
-    setSaving(true)
-    const { error } = await supabase.from('orders').update({
-      final_paid: true,
-      status: 'in_progress',
-    }).eq('id', order!.id)
-    if (error) toast.error('Failed to confirm payment, please try again')
-    else { toast.success('Payment confirmed — work started ✓'); refetch() }
-    setSaving(false)
-  }
-
-  async function confirmBookingPayment() {
-    if (!order!.upi_booking_ref?.trim()) {
-      toast.error('Cannot confirm — no UTR/transaction reference on file')
-      return
-    }
-    setSaving(true)
-    const { error } = await supabase.from('orders').update({ booking_paid: true }).eq('id', order!.id)
-    if (error) toast.error('Failed to confirm payment, please try again')
-    else { toast.success('Booking payment confirmed ✓'); refetch() }
-    setSaving(false)
-  }
-
   async function assignStore() {
     if (!selectedStore) return toast.error('Select a store')
     const store = stores.find(s => s.id === selectedStore)
@@ -196,17 +169,11 @@ export default function AdminOrderDetail() {
         </div>
       </Card>
 
-      {/* Confirm booking payment if not yet */}
+      {/* Booking payment status */}
       {!order.booking_paid && (
         <Card className="mb-4 border-amber-500/30">
-          <p className="text-amber-400 font-bold mb-2">⚠️ Booking Payment Pending</p>
-          <p className="text-slate-400 text-sm mb-3">
-            Check your UPI app for ₹{order.booking_amt} from {order.customer_phone}
-            {order.upi_booking_ref && ` · Ref: ${order.upi_booking_ref}`}
-          </p>
-          <Button variant="primary" loading={saving} onClick={confirmBookingPayment}>
-            Confirm Booking Payment ✓
-          </Button>
+          <p className="text-amber-400 font-bold mb-1">⏳ Booking Payment Pending</p>
+          <p className="text-slate-400 text-sm">Awaiting Cashfree confirmation — will update automatically.</p>
         </Card>
       )}
 
@@ -271,17 +238,11 @@ export default function AdminOrderDetail() {
       )}
 
 
-      {/* Confirm final payment */}
+      {/* Final payment status */}
       {order.status === 'quote_sent' && order.mat_cost_admin != null && !order.final_paid && (
         <Card className="mb-4 border-amber-500/30">
-          <p className="text-amber-400 font-bold mb-2">⏳ Awaiting Final Payment</p>
-          <p className="text-slate-400 text-sm mb-3">
-            Customer needs to pay {formatCurrency(order.total_quote || 0)} via UPI
-            {order.upi_final_ref && ` · Ref: ${order.upi_final_ref}`}
-          </p>
-          <Button variant="primary" loading={saving} onClick={confirmFinalPayment}>
-            Confirm Payment & Start Work ✓
-          </Button>
+          <p className="text-amber-400 font-bold mb-1">⏳ Awaiting Final Payment</p>
+          <p className="text-slate-400 text-sm">Customer has been sent {formatCurrency(order.total_quote || 0)} payment request via Cashfree — will update automatically.</p>
         </Card>
       )}
 

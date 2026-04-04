@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useOrder } from '../../hooks/useOrders'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -8,6 +8,7 @@ import { LiveTrackingMap } from '../../components/LiveTrackingMap'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { supabase } from '../../lib/supabase'
+import { openCashfreeCheckout } from '../../lib/cashfree'
 import { formatDate, formatCurrency } from '../../lib/utils'
 import { TRANSACTION_FEE_RATE } from '../../constants'
 import { ArrowLeft, Star, Phone } from 'lucide-react'
@@ -83,14 +84,13 @@ export default function CustomerOrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const { order, loading, refetch } = useOrder(orderId!)
   const [rating, setRating] = useState(0)
-  const [upiRef, setUpiRef] = useState('')
   const [saving, setSaving] = useState(false)
   const [workerPhoto, setWorkerPhoto] = useState<string | null>(null)
   const [workerBadge, setWorkerBadge] = useState<Milestone | null>(null)
-  const [paymentSubmitted, setPaymentSubmitted] = useState(false)
   const [showRatingPopup, setShowRatingPopup] = useState(false)
   const [hoverRating, setHoverRating] = useState(0)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   // Auto-open rating popup when order completes and hasn't been rated
   useEffect(() => {
@@ -118,20 +118,29 @@ export default function CustomerOrderDetail() {
     loadWorkerData()
   }, [order?.worker_id])
 
+  // Show toast when returning from Cashfree redirect
+  useEffect(() => {
+    const paymentParam = searchParams.get('payment')
+    const statusParam  = searchParams.get('status')
+    if (!paymentParam || !statusParam) return
+    if (statusParam === 'PAID') {
+      toast.success(paymentParam === 'booking' ? 'Booking payment successful!' : 'Payment successful! Work will begin shortly.')
+    } else if (statusParam !== 'ACTIVE') {
+      toast.error('Payment was not completed. Please try again.')
+    }
+  }, [])
+
   async function handleFinalPay() {
     if (!order) return
     if (!order.total_quote) return toast.error('Quote amount not available yet')
     setSaving(true)
     try {
-      const { error } = await supabase.from('orders').update({ upi_final_ref: upiRef || 'pending' }).eq('id', order.id)
-      if (error) throw error
-      toast.success('Payment submitted! Admin will confirm shortly.')
-      setPaymentSubmitted(true)
+      await openCashfreeCheckout(order.id, 'final')
     } catch (err: any) {
-      console.error('Final pay submit failed:', err)
-      toast.error(err?.message || 'Failed to submit, please try again')
+      console.error('Final pay failed:', err)
+      toast.error(err?.message || 'Failed to open payment, please try again')
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function cancelOrder() {
@@ -320,34 +329,19 @@ export default function CustomerOrderDetail() {
             </span>
           </div>
           <div className="mt-3">
-            {!paymentSubmitted ? (
-              <>
-                <input
-                  placeholder="Paste UTR / transaction ref (optional)"
-                  value={upiRef}
-                  onChange={e => setUpiRef(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-50 text-sm placeholder-slate-600 outline-none mb-3"
-                />
-                <Button size="lg" variant="accent" loading={saving} onClick={handleFinalPay}>
-                  Submit Payment →
-                </Button>
-                <button
-                  onClick={cancelOrder}
-                  disabled={saving}
-                  className="w-full mt-2 py-2.5 text-sm font-semibold text-red-400 border border-red-500/30 rounded-xl bg-red-500/10 disabled:opacity-50"
-                >
-                  Cancel Order
-                </button>
-                <p className="text-slate-600 text-xs text-center mt-1.5">
-                  Note: ₹100 of your booking fee will be paid to the Pro for their visit.
-                </p>
-              </>
-            ) : (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 text-center">
-                <p className="text-blue-300 font-semibold text-sm">⏳ Payment submitted</p>
-                <p className="text-slate-400 text-xs mt-1">Waiting for admin to confirm your payment. Work will start shortly.</p>
-              </div>
-            )}
+            <Button size="lg" variant="accent" loading={saving} onClick={handleFinalPay}>
+              Pay Now →
+            </Button>
+            <button
+              onClick={cancelOrder}
+              disabled={saving}
+              className="w-full mt-2 py-2.5 text-sm font-semibold text-red-400 border border-red-500/30 rounded-xl bg-red-500/10 disabled:opacity-50"
+            >
+              Cancel Order
+            </button>
+            <p className="text-slate-600 text-xs text-center mt-1.5">
+              Note: ₹100 of your booking fee will be paid to the Pro for their visit.
+            </p>
           </div>
         </Card>
       )}

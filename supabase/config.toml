@@ -31,3 +31,9 @@ verify_jwt = false
 
 [functions.worker-auto-timeout]
 verify_jwt = false
+
+[functions.cashfree-create-order]
+verify_jwt = true
+
+[functions.cashfree-webhook]
+verify_jwt = false

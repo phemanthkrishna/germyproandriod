@@ -9,6 +9,7 @@ import { BottomNav } from '../../components/BottomNav'
 import { MapPicker } from '../../components/MapPicker'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { openCashfreeCheckout } from '../../lib/cashfree'
 import { generateOtp, generateOrderId, formatCurrency } from '../../lib/utils'
 import { Home, List, User, MapPin } from 'lucide-react'
 
@@ -158,8 +159,8 @@ export default function Book() {
         .eq('customer_id', session.id)
         .eq('service', selectedService)
 
-      toast.success('Order placed! Our team will contact you shortly.')
-      navigate(`/customer/orders/${orderId}`)
+      // Open Cashfree checkout — redirects user; return URL goes to order detail page
+      await openCashfreeCheckout(orderId, 'booking')
     } catch (err: any) {
       console.error('Order insert failed:', err)
       toast.error(err?.message || 'Failed to place order, please try again')
