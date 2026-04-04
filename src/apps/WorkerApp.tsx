@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { JobCallScreen } from '../components/JobCallScreen'
 
 // Pages
+import WorkerLanding from '../pages/worker/Landing'
 import WorkerLogin from '../pages/worker/Login'
 import WorkerRegister from '../pages/worker/Register'
 import WorkerJobs from '../pages/worker/Jobs'
@@ -34,6 +35,7 @@ function WorkerRoutes() {
         />
       )}
       <Routes>
+        <Route path="/" element={<WorkerLanding />} />
         <Route path="/worker/login" element={<WorkerLogin />} />
         <Route path="/worker/register" element={<WorkerRegister />} />
         <Route path="/worker" element={<RequireWorker><WorkerJobs /></RequireWorker>} />
@@ -42,7 +44,7 @@ function WorkerRoutes() {
         <Route path="/worker/history" element={<RequireWorker><WorkerHistory /></RequireWorker>} />
         <Route path="/worker/profile" element={<RequireWorker><WorkerProfile /></RequireWorker>} />
         <Route path="/worker/job/:orderId" element={<RequireWorker><JobDetail /></RequireWorker>} />
-        <Route path="*" element={<Navigate to="/worker" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   )

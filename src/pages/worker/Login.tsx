@@ -108,16 +108,27 @@ export default function WorkerLogin() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col px-5 py-8">
-      <button onClick={() => navigate('/')} className="text-slate-400 mb-8">← Back</button>
+    <div className="min-h-dvh flex flex-col px-5 py-8 bg-[var(--bg)]">
+      <button onClick={() => navigate('/')} className="text-[var(--muted)] mb-6 text-sm flex items-center gap-1 w-fit">
+        ← Back
+      </button>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-black font-heading text-slate-50">
-          {step === 'phone' ? 'Pro Login 🔧' : 'Verify OTP'}
-        </h1>
-        <p className="text-slate-400 mt-1">
-          {step === 'phone' ? 'Welcome back, Pro!' : `Sent to +91 ${phone}`}
-        </p>
+      {/* Logo */}
+      <div className="flex items-center gap-3 mb-8">
+        <img
+          src="/logo.png"
+          alt="GetMyPro"
+          className="w-12 h-12 object-contain"
+          onError={e => { e.currentTarget.src = '/logo.svg' }}
+        />
+        <div>
+          <h1 className="text-2xl font-black font-heading gradient-text leading-none">
+            {step === 'phone' ? 'Pro Login' : 'Verify OTP'}
+          </h1>
+          <p className="text-[var(--muted)] text-sm mt-0.5">
+            {step === 'phone' ? 'Welcome back, Pro!' : `Code sent to +91 ${phone}`}
+          </p>
+        </div>
       </div>
 
       {step === 'phone' ? (

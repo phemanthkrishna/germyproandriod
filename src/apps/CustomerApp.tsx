@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { CustomerAlertNotifier } from '../components/CustomerAlertNotifier'
 
 // Pages
+import CustomerLanding from '../pages/customer/Landing'
 import CustomerLogin from '../pages/customer/Login'
 import CustomerHome from '../pages/customer/Home'
 import Book from '../pages/customer/Book'
@@ -28,13 +29,14 @@ function CustomerRoutes() {
         <CustomerAlertNotifier customerId={session.id} />
       )}
       <Routes>
+        <Route path="/" element={<CustomerLanding />} />
         <Route path="/customer/login" element={<CustomerLogin />} />
         <Route path="/customer" element={<RequireCustomer><CustomerHome /></RequireCustomer>} />
         <Route path="/customer/book" element={<RequireCustomer><Book /></RequireCustomer>} />
         <Route path="/customer/orders" element={<RequireCustomer><CustomerOrders /></RequireCustomer>} />
         <Route path="/customer/orders/:orderId" element={<RequireCustomer><CustomerOrderDetail /></RequireCustomer>} />
         <Route path="/customer/profile" element={<RequireCustomer><CustomerProfile /></RequireCustomer>} />
-        <Route path="*" element={<Navigate to="/customer" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   )

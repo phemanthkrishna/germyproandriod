@@ -5,6 +5,7 @@ import { ThemeProvider } from '../context/ThemeContext'
 import { useStoreAuth } from '../context/StoreAuthContext'
 
 // Pages
+import StoreLanding from '../pages/store/Landing'
 import StoreLogin from '../pages/store/Login'
 import StoreDashboard from '../pages/store/Dashboard'
 import StoreOrderDetail from '../pages/store/OrderDetail'
@@ -21,12 +22,13 @@ function RequireStore({ children }: { children: JSX.Element }) {
 function StoreRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<StoreLanding />} />
       <Route path="/store/login" element={<StoreLogin />} />
       <Route path="/store" element={<RequireStore><StoreDashboard /></RequireStore>} />
       <Route path="/store/order/:id" element={<RequireStore><StoreOrderDetail /></RequireStore>} />
       <Route path="/store/earnings" element={<RequireStore><StoreEarnings /></RequireStore>} />
       <Route path="/store/profile" element={<RequireStore><StoreProfile /></RequireStore>} />
-      <Route path="*" element={<Navigate to="/store" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
