@@ -8,6 +8,10 @@ const config: CapacitorConfig = {
     androidScheme: 'https'
   },
   plugins: {
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ['phone'],
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#1A5FB8',

@@ -9,12 +9,10 @@ export default defineConfig(({ mode }) => {
       host: '127.0.0.1',
     },
     build: {
-      rollupOptions: {
-        external: ['@capacitor/core', '@capacitor-firebase/authentication'],
-      },
+      rollupOptions: {},
     },
     define: {
-      'import.meta.env.VITE_PORTAL': JSON.stringify(env.VITE_PORTAL || 'customer'),
+      'import.meta.env.VITE_PORTAL': JSON.stringify(env.VITE_PORTAL || mode),
     },
   }
 })
