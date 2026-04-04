@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { toast } from 'sonner'
 import { BottomNav } from '../../components/BottomNav'
 import { Briefcase, DollarSign, User, LogOut, Edit2, Check, X, History, Trophy, Copy, Share2 } from 'lucide-react'
+import { LegalLinks } from '../../components/LegalLinks'
 import { SERVICES } from '../../constants'
 import { useWorkerProgress, MILESTONES } from '../../hooks/useWorkerProgress'
 import type { Worker } from '../../types'
@@ -301,6 +302,8 @@ export default function WorkerProfile() {
         <LogOut size={16} />
         Sign Out
       </button>
+
+      <LegalLinks />
 
       <BottomNav items={NAV} />
     </div>

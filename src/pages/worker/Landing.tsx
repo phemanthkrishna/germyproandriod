@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { IndianRupee, Clock, TrendingUp, ChevronRight } from 'lucide-react'
+import { LegalLinks } from '../../components/LegalLinks'
 
 const FEATURES = [
   { icon: IndianRupee, label: 'Earn more',          desc: 'Get paid directly for every job you complete' },
@@ -90,6 +91,8 @@ export default function WorkerLanding() {
         >
           Already registered? Login
         </button>
+
+        <LegalLinks />
       </div>
 
     </div>

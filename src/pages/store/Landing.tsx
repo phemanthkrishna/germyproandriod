@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStoreAuth } from '../../context/StoreAuthContext'
 import { useEffect } from 'react'
 import { Package, BarChart2, Handshake, ChevronRight } from 'lucide-react'
+import { LegalLinks } from '../../components/LegalLinks'
 
 const FEATURES = [
   { icon: Package,   label: 'Supply materials',   desc: 'Provide materials for jobs in your area' },
@@ -77,6 +78,8 @@ export default function StoreLanding() {
         <p className="text-center text-xs text-[var(--muted)]">
           Your Store ID was provided by GetMyPro
         </p>
+
+        <LegalLinks />
       </div>
 
     </div>

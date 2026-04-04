@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { BottomNav } from '../../components/BottomNav'
 import { MapPicker } from '../../components/MapPicker'
 import { Home, List, User, LogOut, Edit2, Check, X, Plus, Trash2, MapPin, Map } from 'lucide-react'
+import { LegalLinks } from '../../components/LegalLinks'
 
 const NAV = [
   { to: '/customer', icon: Home, label: 'Home' },
@@ -295,6 +296,8 @@ export default function CustomerProfile() {
       >
         <LogOut size={16} /> Sign Out
       </button>
+
+      <LegalLinks />
 
       <BottomNav items={NAV} />
     </div>

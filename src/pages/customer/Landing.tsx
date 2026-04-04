@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Zap, ShieldCheck, Star, ChevronRight } from 'lucide-react'
+import { LegalLinks } from '../../components/LegalLinks'
 
 const FEATURES = [
   { icon: Zap,         label: 'Instant booking',      desc: 'Get a pro at your door in hours' },
@@ -95,6 +96,8 @@ export default function CustomerLanding() {
             Join as a Pro
           </button>
         </p>
+
+        <LegalLinks />
       </div>
 
     </div>

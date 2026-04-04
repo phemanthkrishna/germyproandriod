@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useStoreAuth } from '../../context/StoreAuthContext'
 import { StoreBottomNav } from '../../components/StoreBottomNav'
 import { Copy, LogOut, MessageCircle } from 'lucide-react'
+import { LegalLinks } from '../../components/LegalLinks'
 
 export default function StoreProfile() {
   const { store, signOut } = useStoreAuth()
@@ -84,6 +85,8 @@ export default function StoreProfile() {
           <LogOut size={16} /> Log Out
         </button>
       )}
+
+      <LegalLinks />
 
       <StoreBottomNav />
     </div>
