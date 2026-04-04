@@ -68,7 +68,10 @@ select {
 /* ─── Reset ──────────────────────────────────────────────────────────────── */
 html, body, #root {
   height: 100%;
+  /* Use fixed height so Android keyboard resize doesn't collapse the layout */
+  height: 100dvh;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
@@ -97,15 +100,18 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   justify-content: center;
   background: var(--bg);
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .app-shell {
   width: 100%;
   max-width: 430px;
-  min-height: 100dvh;
+  height: 100dvh;
   background-color: var(--bg);
   position: relative;
   overflow-x: hidden;
+  overflow-y: auto;
   /* Push content below notch/status-bar on iOS */
   padding-top: env(safe-area-inset-top, 0px);
 }
@@ -113,7 +119,7 @@ h1, h2, h3, h4, h5, h6 {
 .page-content {
   /* 80px nav height + iOS home-indicator safe area */
   padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  min-height: 100dvh;
+  min-height: 100%;
 }
 
 /* ─── Light theme — Tailwind slate overrides ────────────────────────────── */
