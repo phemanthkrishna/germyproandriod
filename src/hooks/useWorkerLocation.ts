@@ -10,16 +10,24 @@ export function useWorkerLocation(workerId: string, isActive: boolean) {
 
     const locRef = ref(database, `worker_locations/${workerId}`)
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      pos => {
-        set(locRef, {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          ts: Date.now(),
-        })
+    // Explicitly request permission first — required on Android WebView
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        // Permission granted — start continuous watch
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          pos => {
+            set(locRef, {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              ts: Date.now(),
+            })
+          },
+          err => { console.error('Worker GPS watch error:', err.code, err.message) },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        )
       },
-      err => { console.error('Worker GPS error:', err.code, err.message) },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+      err => { console.error('Worker GPS permission error:', err.code, err.message) },
+      { enableHighAccuracy: true, timeout: 15000 }
     )
 
     return () => {

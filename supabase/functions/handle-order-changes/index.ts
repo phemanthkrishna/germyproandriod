@@ -3,7 +3,7 @@ import { sendNotification } from '../_shared/fcm.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const supabase = createClient(
-  'https://czhffuzqxkhxfmvjucee.supabase.co',
+  Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SERVICE_ROLE_KEY')!,
 )
 
@@ -13,14 +13,20 @@ async function getWorkerToken(workerId: string): Promise<string | null> {
   return data?.fcm_token ?? null
 }
 
+async function getCustomerToken(customerId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('profiles').select('fcm_token').eq('id', customerId).single()
+  return data?.fcm_token ?? null
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     const { type, record: order, old_record: old } = await req.json()
 
-    // ── INSERT: new unassigned job ────────────────────────────────
-    if (type === 'INSERT' && order.status === 'booked' && !order.worker_id) {
+    // ── UPDATE: booking payment confirmed → broadcast to available workers ──
+    if (type === 'UPDATE' && !old.booking_paid && order.booking_paid && !order.worker_id) {
       const { data: workers } = await supabase
         .from('workers')
         .select('fcm_token, service_categories')
@@ -71,13 +77,13 @@ Deno.serve(async (req) => {
         )
       }
 
-      // 3. Labour quote approved by admin
-      if (old.labour_approval_pending && !order.labour_approval_pending && order.worker_id) {
+      // 3. Status just moved to quote_sent → notify worker (covers both direct quote + admin approval paths)
+      if (old.status !== 'quote_sent' && order.status === 'quote_sent' && order.worker_id) {
         const token = await getWorkerToken(order.worker_id)
         if (token) await sendNotification(
           token,
-          'Quote Approved ✓',
-          `Your ₹${order.labour_pending_amount} charge was approved — quote sent to customer`,
+          'Quote Sent to Customer ✓',
+          `Your quote for ${order.service} has been sent — waiting for customer payment`,
           { screen: 'job', orderId: order.id },
           'normal',
         )
@@ -115,6 +121,44 @@ Deno.serve(async (req) => {
           'Payment Credited 💰',
           `₹${(order.quote_labour ?? 0) + 100} for your ${order.service} job sent to your UPI`,
           { screen: 'earnings' },
+          'normal',
+        )
+      }
+
+      // ── Customer notifications ─────────────────────────────────────
+
+      // C1. Worker assigned — notify customer
+      if (!old.worker_id && order.worker_id && order.customer_id) {
+        const token = await getCustomerToken(order.customer_id)
+        if (token) await sendNotification(
+          token,
+          'Pro is on the way! 🚗',
+          `${order.worker_name} has accepted your ${order.service} job and is heading to you`,
+          { screen: 'order', orderId: order.id },
+          'high',
+        )
+      }
+
+      // C2. Quote ready — notify customer (mat_cost_admin set, status quote_sent)
+      if (old.status !== 'quote_sent' && order.status === 'quote_sent' && order.customer_id) {
+        const token = await getCustomerToken(order.customer_id)
+        if (token) await sendNotification(
+          token,
+          'Your Quote is Ready! 📋',
+          `Open the app to review and pay for your ${order.service} job`,
+          { screen: 'order', orderId: order.id },
+          'high',
+        )
+      }
+
+      // C3. Job completed — notify customer
+      if (old.status !== 'completed' && order.status === 'completed' && order.customer_id) {
+        const token = await getCustomerToken(order.customer_id)
+        if (token) await sendNotification(
+          token,
+          'Job Complete! 🎉',
+          `Your ${order.service} is done. Tap to rate your Pro`,
+          { screen: 'order', orderId: order.id },
           'normal',
         )
       }

@@ -119,15 +119,46 @@ export default function CustomerOrderDetail() {
   }, [order?.worker_id])
 
   // Show toast when returning from Cashfree redirect
+  // We check the DB rather than the URL param — Cashfree sandbox doesn't always
+  // replace {order_status} reliably, so the URL param is not trustworthy.
   useEffect(() => {
     const paymentParam = searchParams.get('payment')
     const statusParam  = searchParams.get('status')
     if (!paymentParam || !statusParam) return
-    if (statusParam === 'PAID') {
-      toast.success(paymentParam === 'booking' ? 'Booking payment successful!' : 'Payment successful! Work will begin shortly.')
-    } else if (statusParam !== 'ACTIVE') {
-      toast.error('Payment was not completed. Please try again.')
-    }
+
+    // Poll DB for up to 5s waiting for webhook to confirm payment
+    let attempts = 0
+    const check = setInterval(async () => {
+      attempts++
+      const { data } = await supabase
+        .from('orders')
+        .select('booking_paid, final_paid')
+        .eq('id', orderId!)
+        .single()
+
+      const paid = paymentParam === 'booking' ? data?.booking_paid : data?.final_paid
+
+      if (paid) {
+        clearInterval(check)
+        toast.success(paymentParam === 'booking'
+          ? 'Booking payment successful!'
+          : 'Payment successful! Work will begin shortly.')
+        refetch()
+      } else if (attempts >= 5) {
+        clearInterval(check)
+        // Cashfree URL status PAID means it went through — webhook may be slightly delayed
+        if (statusParam === 'PAID') {
+          toast.success(paymentParam === 'booking'
+            ? 'Booking payment received — confirming...'
+            : 'Payment received — confirming...')
+          refetch()
+        } else if (statusParam !== 'ACTIVE') {
+          toast.error('Payment was not completed. Please try again.')
+        }
+      }
+    }, 1000)
+
+    return () => clearInterval(check)
   }, [])
 
   async function handleFinalPay() {

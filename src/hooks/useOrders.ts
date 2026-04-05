@@ -50,8 +50,7 @@ export function useOrder(orderId: string) {
   useEffect(() => {
     fetchOrder()
 
-    // Server-side filter (requires REPLICA IDENTITY FULL + table in supabase_realtime publication)
-    // Client-side id check as safety net in case filter is bypassed
+    // Realtime subscription for live updates
     const channel = supabase
       .channel('order-' + orderId)
       .on(
@@ -61,7 +60,17 @@ export function useOrder(orderId: string) {
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    // Refetch when app comes back to foreground (covers cases where realtime
+    // missed an update while the screen was off or app was backgrounded)
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') fetchOrder()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [orderId])
 
   return { order, loading, refetch: fetchOrder }

@@ -140,6 +140,7 @@ export function JobCallScreen({ workerId, workerName, workerPhone }: Props) {
       .from('orders')
       .select('*')
       .eq('status', 'booked')
+      .eq('booking_paid', true)
       .is('worker_id', null)
       .not('declined_worker_ids', 'cs', `{${workerId}}`)
       .or(`preferred_worker_id.is.null,preferred_worker_id.eq.${workerId}`)
@@ -164,8 +165,10 @@ export function JobCallScreen({ workerId, workerName, workerPhone }: Props) {
   useEffect(() => {
     const ch = supabase.channel(`job-requests-${workerId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, async payload => {
-        if (!workerMeta?.verified || !workerMeta?.is_active || !workerMeta?.is_online) return
+        // Ignore unpaid orders — wait for booking_paid UPDATE instead
         const order = payload.new as Order
+        if (!order.booking_paid) return
+        if (!workerMeta?.verified || !workerMeta?.is_active || !workerMeta?.is_online) return
         if (order.status !== 'booked' || order.worker_id) return
         if ((order.declined_worker_ids || []).includes(workerId)) return
         if (order.preferred_worker_id && order.preferred_worker_id !== workerId) return
@@ -176,6 +179,20 @@ export function JobCallScreen({ workerId, workerName, workerPhone }: Props) {
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, async payload => {
         const updated = payload.new as Order
+        const old     = payload.old as Order
+
+        // Payment just confirmed → show job card to eligible workers
+        if (!old.booking_paid && updated.booking_paid && updated.status === 'booked' && !updated.worker_id) {
+          if (!workerMeta?.verified || !workerMeta?.is_active || !workerMeta?.is_online) return
+          if ((updated.declined_worker_ids || []).includes(workerId)) return
+          if (updated.preferred_worker_id && updated.preferred_worker_id !== workerId) return
+          const cats = workerMeta.service_categories || []
+          if (cats.length > 0 && !cats.includes(updated.service)) return
+          if (await isBusy()) return
+          enqueueWithRadius(updated)
+          return
+        }
+
         // Job taken by another worker — remove from queue
         if (updated.worker_id && updated.worker_id !== workerId) {
           const timer = pendingTimers.current.get(updated.id)

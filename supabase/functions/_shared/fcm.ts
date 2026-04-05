@@ -71,8 +71,12 @@ export async function sendNotification(
           android: {
             priority: priority === 'high' ? 'HIGH' : 'NORMAL',
             notification: {
-              sound:      'default',
-              channel_id: priority === 'high' ? 'job_alerts' : 'general',
+              sound:        'default',
+              channel_id:   priority === 'high' ? 'job_alerts' : 'general',
+              default_sound: true,
+              default_vibrate_timings: true,
+              notification_priority: priority === 'high' ? 'PRIORITY_MAX' : 'PRIORITY_DEFAULT',
+              visibility: priority === 'high' ? 'PUBLIC' : 'PRIVATE',
             },
           },
           data,

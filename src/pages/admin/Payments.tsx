@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from '../../lib/utils'
 import { ClipboardList, Users, DollarSign, Package, Store } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Order, BonusClaim } from '../../types'
+import { BOOKING_FEE, VISITING_CHARGE } from '../../constants'
 
 const NAV = [
   { to: '/admin', icon: ClipboardList, label: 'Orders' },
@@ -14,8 +15,8 @@ const NAV = [
   { to: '/admin/stores', icon: Store, label: 'Stores' },
 ]
 
-const PLATFORM_FEE = 25   // ₹25 kept from each ₹125 booking
-const WORKER_VISIT = 100  // ₹100 visiting charge from each booking → to worker
+const PLATFORM_FEE = BOOKING_FEE - VISITING_CHARGE  // ₹25 kept from each booking
+const WORKER_VISIT = VISITING_CHARGE                 // ₹100 visiting charge → to worker
 
 export default function AdminPayments() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -94,7 +95,7 @@ export default function AdminPayments() {
   const cancelled   = orders.filter(o => o.status === 'cancelled' && (o.worker_cancellation_pay || 0) > 0)
 
   // Money IN
-  const totalBookingCollected = bookingPaid.length * 125
+  const totalBookingCollected = bookingPaid.length * BOOKING_FEE
   const totalFinalCollected   = finalPaid.reduce((s, o) => s + (o.total_quote || 0), 0)
   const totalMaterialCommission = orders.reduce((s, o) => s + (o.mat_commission || 0), 0)
   const totalIn = totalBookingCollected + totalFinalCollected
@@ -136,7 +137,7 @@ export default function AdminPayments() {
       {/* ── Money In ── */}
       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Money In</p>
       <div className="bg-slate-800 border border-slate-700 rounded-2xl divide-y divide-slate-700 mb-4">
-        <Row label={`Booking fees (${bookingPaid.length} × ₹125)`} value={formatCurrency(totalBookingCollected)} color="text-slate-50" />
+        <Row label={`Booking fees (${bookingPaid.length} × ${formatCurrency(BOOKING_FEE)})`} value={formatCurrency(totalBookingCollected)} color="text-slate-50" />
         <Row label="Final job payments" value={formatCurrency(totalFinalCollected)} color="text-slate-50" />
         <Row label="Total collected" value={formatCurrency(totalIn)} color="text-green-400" bold />
       </div>
@@ -144,7 +145,7 @@ export default function AdminPayments() {
       {/* ── Platform Revenue ── */}
       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Platform Revenue</p>
       <div className="bg-slate-800 border border-slate-700 rounded-2xl divide-y divide-slate-700 mb-4">
-        <Row label={`Booking fee cut (${bookingPaid.length} × ₹25)`} value={formatCurrency(platformFromBookings)} color="text-slate-50" />
+        <Row label={`Booking fee cut (${bookingPaid.length} × ${formatCurrency(PLATFORM_FEE)})`} value={formatCurrency(platformFromBookings)} color="text-slate-50" />
         <Row label="Material commissions" value={formatCurrency(totalMaterialCommission)} color="text-slate-50" />
         <Row label="Net Revenue" value={formatCurrency(netProfit)} color="text-green-400" bold />
       </div>

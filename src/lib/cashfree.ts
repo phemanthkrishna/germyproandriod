@@ -6,7 +6,10 @@ export type PaymentType = 'booking' | 'final'
 let _cashfree: Awaited<ReturnType<typeof load>> | null = null
 
 async function getSdk() {
-  if (!_cashfree) _cashfree = await load({ mode: 'production' })
+  if (!_cashfree) {
+    const mode = (import.meta.env.VITE_CASHFREE_MODE as 'production' | 'sandbox') || 'production'
+    _cashfree = await load({ mode })
+  }
   return _cashfree
 }
 

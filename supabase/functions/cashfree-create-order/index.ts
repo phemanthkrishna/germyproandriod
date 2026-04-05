@@ -66,7 +66,8 @@ Deno.serve(async (req) => {
     // Unique Cashfree order ID: prefix with payment type to avoid collision
     const cfOrderId = `${payment_type === 'booking' ? 'BK' : 'FN'}-${order_id}`
 
-    const appUrl = Deno.env.get('APP_URL') || 'https://app.getmypro.in'
+    // Capacitor native app runs on https://localhost — must match the whitelisted domain
+    const appUrl = Deno.env.get('APP_URL') || 'https://localhost'
 
     const payload = {
       order_id:       cfOrderId,
@@ -87,7 +88,12 @@ Deno.serve(async (req) => {
       },
     }
 
-    const cfRes = await fetch('https://api.cashfree.com/pg/orders', {
+    const cfEnv = Deno.env.get('CASHFREE_ENV') || 'production'
+    const cfBaseUrl = cfEnv === 'sandbox'
+      ? 'https://sandbox.cashfree.com/pg'
+      : 'https://api.cashfree.com/pg'
+
+    const cfRes = await fetch(`${cfBaseUrl}/orders`, {
       method:  'POST',
       headers: {
         'Content-Type':   'application/json',

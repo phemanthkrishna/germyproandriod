@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'GetMyPro',
   webDir: '../dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    allowNavigation: ['*.cashfree.com', 'cashfree.com']
   },
   plugins: {
     FirebaseAuthentication: {

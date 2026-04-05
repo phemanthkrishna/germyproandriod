@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { JobCallScreen } from './components/JobCallScreen'
 import { CustomerAlertNotifier } from './components/CustomerAlertNotifier'
+import { useFcmToken } from './hooks/useFcmToken'
 
 // Pages
 import Landing from './pages/Landing'
@@ -50,6 +51,7 @@ function RequireAuth({ children, role }: { children: JSX.Element; role?: string 
 
 export default function App() {
   const { session } = useAuth()
+  useFcmToken(session?.id, session?.role)
   return (
     <>
     {session?.role === 'worker' && (
