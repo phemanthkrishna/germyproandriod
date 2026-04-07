@@ -1,4 +1,19 @@
 # Add project specific ProGuard rules here.
+
+# ── Firebase Authentication plugin references Facebook SDK classes
+# ── but we only use phone auth — suppress missing class errors
+-dontwarn com.facebook.**
+-keep class com.facebook.** { *; }
+
+# ── Capacitor WebView bridge
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# ── Suppress other common missing class warnings from Capacitor plugins
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
 #

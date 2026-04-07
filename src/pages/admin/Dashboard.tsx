@@ -6,7 +6,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { BottomNav } from '../../components/BottomNav'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { formatDate } from '../../lib/utils'
-import { ClipboardList, Users, DollarSign, Package, Store } from 'lucide-react'
+import { ClipboardList, Users, DollarSign, Package, Store, MapPin, Wrench } from 'lucide-react'
 import type { Order } from '../../types'
 
 const NAV = [
@@ -15,6 +15,8 @@ const NAV = [
   { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
   { to: '/admin/materials', icon: Package, label: 'Materials' },
   { to: '/admin/stores', icon: Store, label: 'Stores' },
+  { to: '/admin/cities', icon: MapPin, label: 'Cities' },
+  { to: '/admin/services', icon: Wrench, label: 'Services' },
 ]
 
 const FILTERS = ['All', 'Assign Worker', 'In Progress', 'Done']

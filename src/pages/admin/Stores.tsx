@@ -5,7 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { BottomNav } from '../../components/BottomNav'
-import { ClipboardList, Users, DollarSign, Package, Store, Trash2, Plus, Copy, ToggleLeft, ToggleRight, MapPin, Loader2 } from 'lucide-react'
+import { ClipboardList, Users, DollarSign, Package, Store, Trash2, Plus, Copy, ToggleLeft, ToggleRight, MapPin, Loader2, Wrench } from 'lucide-react'
 
 const NAV = [
   { to: '/admin', icon: ClipboardList, label: 'Orders' },
@@ -13,6 +13,8 @@ const NAV = [
   { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
   { to: '/admin/materials', icon: Package, label: 'Materials' },
   { to: '/admin/stores', icon: Store, label: 'Stores' },
+  { to: '/admin/cities', icon: MapPin, label: 'Cities' },
+  { to: '/admin/services', icon: Wrench, label: 'Services' },
 ]
 
 const STORE_TYPES = [

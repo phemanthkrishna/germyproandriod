@@ -32,6 +32,7 @@ export interface Worker {
   photo_url?: string
   upi_id?: string
   address?: string
+  city?: string
   experience_years?: number
   avg_rating?: number
   total_ratings?: number
@@ -61,6 +62,7 @@ export interface Order {
   address: string
   customer_lat?: number
   customer_lng?: number
+  customer_city?: string
   problem_description?: string
   status: OrderStatus
   booking_amt: number

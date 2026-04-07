@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { toast } from 'sonner'
 import { BottomNav } from '../../components/BottomNav'
 import { MapPicker } from '../../components/MapPicker'
-import { Home, List, User, LogOut, Edit2, Check, X, Plus, Trash2, MapPin, Map } from 'lucide-react'
+import { Home, List, User, LogOut, Edit2, Check, X, Plus, Trash2, MapPin, Map, Phone, MessageCircle } from 'lucide-react'
 import { LegalLinks } from '../../components/LegalLinks'
 
 const NAV = [
@@ -287,6 +287,27 @@ export default function CustomerProfile() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Support */}
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-4">
+        <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-3">Support</p>
+        <div className="flex gap-3">
+          <a
+            href="tel:+918985614758"
+            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl py-3 transition-colors"
+          >
+            <Phone size={16} /> Call Us
+          </a>
+          <a
+            href="https://wa.me/918985614758"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold text-sm rounded-xl py-3 transition-colors"
+          >
+            <MessageCircle size={16} /> WhatsApp
+          </a>
+        </div>
       </div>
 
       {/* Sign Out */}

@@ -12,6 +12,8 @@ import AdminWorkers from '../pages/admin/Workers'
 import AdminPayments from '../pages/admin/Payments'
 import AdminMaterials from '../pages/admin/Materials'
 import AdminStores from '../pages/admin/Stores'
+import AdminCities from '../pages/admin/Cities'
+import AdminServices from '../pages/admin/Services'
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
   const { session, loading } = useAuth()
@@ -30,6 +32,8 @@ function AdminRoutes() {
       <Route path="/admin/payments" element={<RequireAdmin><AdminPayments /></RequireAdmin>} />
       <Route path="/admin/materials" element={<RequireAdmin><AdminMaterials /></RequireAdmin>} />
       <Route path="/admin/stores" element={<RequireAdmin><AdminStores /></RequireAdmin>} />
+      <Route path="/admin/cities" element={<RequireAdmin><AdminCities /></RequireAdmin>} />
+      <Route path="/admin/services" element={<RequireAdmin><AdminServices /></RequireAdmin>} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

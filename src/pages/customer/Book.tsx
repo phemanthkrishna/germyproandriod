@@ -9,6 +9,7 @@ import { BottomNav } from '../../components/BottomNav'
 import { MapPicker } from '../../components/MapPicker'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { useActiveServices } from '../../hooks/useActiveServices'
 import { openCashfreeCheckout } from '../../lib/cashfree'
 import { generateOtp, generateOrderId, formatCurrency } from '../../lib/utils'
 import { Home, List, User, MapPin } from 'lucide-react'
@@ -41,6 +42,7 @@ export default function Book() {
   const [checkingCode, setCheckingCode] = useState(false)
   const { session } = useAuth()
   const navigate = useNavigate()
+  const { activeServices } = useActiveServices()
 
   useEffect(() => {
     if (!session?.id) return
@@ -127,6 +129,8 @@ export default function Book() {
         if (!isOnline || isBusy) resolvedPreferredId = null
       }
 
+      const detectedCity = localStorage.getItem('gmp_detected_city') || null
+
       const { error } = await supabase.from('orders').insert({
         id: orderId,
         customer_id: session.id,
@@ -137,6 +141,7 @@ export default function Book() {
         address,
         customer_lat: lat ?? null,
         customer_lng: lng ?? null,
+        customer_city: detectedCity,
         problem_description: problem || null,
         status: 'booked',
         booking_amt: BOOKING_FEE,
@@ -208,7 +213,7 @@ export default function Book() {
         <>
           <p className="text-slate-400 text-sm mb-3">Select a service</p>
           <div className="grid grid-cols-2 gap-3 mb-5">
-            {SERVICES.map(s => (
+            {SERVICES.map(s => activeServices.has(s.name) ? (
               <button
                 key={s.id}
                 onClick={() => setSelectedService(s.name)}
@@ -216,7 +221,20 @@ export default function Book() {
               >
                 <div className="text-3xl mb-2">{s.emoji}</div>
                 <p className="font-bold text-slate-50 text-sm">{s.name}</p>
+                <p className="text-slate-500 text-xs mt-0.5">{s.desc}</p>
               </button>
+            ) : (
+              <div
+                key={s.id}
+                className="relative bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 text-left opacity-60 cursor-not-allowed"
+              >
+                <div className="text-3xl mb-2 grayscale">{s.emoji}</div>
+                <p className="font-bold text-slate-400 text-sm">{s.name}</p>
+                <p className="text-slate-600 text-xs mt-0.5">{s.desc}</p>
+                <span className="absolute top-2 right-2 text-[10px] font-bold bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">
+                  Coming Soon
+                </span>
+              </div>
             ))}
           </div>
         </>

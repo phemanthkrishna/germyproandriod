@@ -76,14 +76,21 @@ export default function WorkerJobs() {
   }, [])
 
   async function fetchAvailable() {
-    // Fetch all unassigned booked orders first
-    const { data: orders } = await supabase
+    // Fetch all unassigned booked orders first, filtered to worker's city
+    const workerCity = workerInfo?.city || null
+    let query = supabase
       .from('orders')
       .select('*')
       .eq('status', 'booked')
       .is('worker_id', null)
       .order('created_at', { ascending: false })
 
+    // Only show orders from the same city as the worker
+    if (workerCity) {
+      query = query.eq('customer_city', workerCity)
+    }
+
+    const { data: orders } = await query
     const all = (orders as Order[]) || []
 
     // Collect preferred_worker_ids that need an availability check

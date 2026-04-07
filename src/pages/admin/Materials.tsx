@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { BottomNav } from '../../components/BottomNav'
 import { Card } from '../../components/ui/Card'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { ClipboardList, Users, DollarSign, Package, TrendingUp, Store } from 'lucide-react'
+import { ClipboardList, Users, DollarSign, Package, TrendingUp, Store, MapPin, Wrench } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { Order } from '../../types'
@@ -14,6 +14,8 @@ const NAV = [
   { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
   { to: '/admin/materials', icon: Package, label: 'Materials' },
   { to: '/admin/stores', icon: Store, label: 'Stores' },
+  { to: '/admin/cities', icon: MapPin, label: 'Cities' },
+  { to: '/admin/services', icon: Wrench, label: 'Services' },
 ]
 
 const DISCOUNT_OPTIONS = [15, 17, 18, 20]

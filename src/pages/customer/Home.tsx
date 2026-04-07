@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SERVICES } from '../../constants'
+import { useActiveServices } from '../../hooks/useActiveServices'
 import { BottomNav } from '../../components/BottomNav'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ThemeToggle } from '../../components/ThemeToggle'
@@ -49,6 +50,7 @@ export default function CustomerHome() {
   const { session, signOut } = useAuth()
   const navigate = useNavigate()
   const { orders } = useOrders({ customer_id: session?.id || '' })
+  const { activeServices } = useActiveServices()
   const active = orders.filter(o => !['completed', 'cancelled'].includes(o.status))
   const [readyAlerts, setReadyAlerts] = useState<ReadyAlert[]>([])
   const [bannerIndex, setBannerIndex] = useState(0)
@@ -230,7 +232,7 @@ export default function CustomerHome() {
       {/* Services */}
       <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Services</p>
       <div className="grid grid-cols-3 gap-3">
-        {SERVICES.map(s => (
+        {SERVICES.map(s => activeServices.has(s.name) ? (
           <button
             key={s.id}
             onClick={() => navigate(`/customer/book?service=${encodeURIComponent(s.name)}`)}
@@ -240,6 +242,17 @@ export default function CustomerHome() {
             <p className="font-semibold text-slate-50 text-xs text-center leading-tight">{s.name}</p>
             <p className="text-slate-500 text-xs text-center leading-tight">{s.desc}</p>
           </button>
+        ) : (
+          <div
+            key={s.id}
+            className="relative flex flex-col items-center justify-center gap-2 rounded-2xl bg-slate-800/50 border border-slate-700/50 py-4 px-2 opacity-50 cursor-not-allowed"
+          >
+            <span className="text-3xl grayscale">{s.emoji}</span>
+            <p className="font-semibold text-slate-400 text-xs text-center leading-tight">{s.name}</p>
+            <span className="text-[9px] font-bold bg-slate-700 text-slate-500 px-1.5 py-0.5 rounded-full">
+              Soon
+            </span>
+          </div>
         ))}
       </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BottomNav } from '../../components/BottomNav'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { ClipboardList, Users, DollarSign, Package, Store } from 'lucide-react'
+import { ClipboardList, Users, DollarSign, Package, Store, MapPin, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Order, BonusClaim } from '../../types'
 import { BOOKING_FEE, VISITING_CHARGE } from '../../constants'
@@ -13,6 +13,8 @@ const NAV = [
   { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
   { to: '/admin/materials', icon: Package, label: 'Materials' },
   { to: '/admin/stores', icon: Store, label: 'Stores' },
+  { to: '/admin/cities', icon: MapPin, label: 'Cities' },
+  { to: '/admin/services', icon: Wrench, label: 'Services' },
 ]
 
 const PLATFORM_FEE = BOOKING_FEE - VISITING_CHARGE  // ₹25 kept from each booking

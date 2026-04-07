@@ -71,15 +71,12 @@ export async function sendOtp(
   if (isNativePlatform()) {
     const plugin = getPlugin()
     nativeVerificationId = await new Promise<string>((resolve, reject) => {
-      const listeners: Promise<any>[] = [
-        plugin.addListener('phoneCodeSent', (e: any) => resolve(e.verificationId)),
-        plugin.addListener('phoneVerificationFailed', (e: any) =>
-          reject(new Error(e.message || 'Phone verification failed'))
-        ),
-      ]
-      Promise.all(listeners).then(() =>
-        plugin.signInWithPhoneNumber({ phoneNumber: `+91${phone}` }).catch(reject)
+      // Register listeners and kick off the OTP request simultaneously
+      plugin.addListener('phoneCodeSent', (e: any) => resolve(e.verificationId))
+      plugin.addListener('phoneVerificationFailed', (e: any) =>
+        reject(new Error(e.message || 'Phone verification failed'))
       )
+      plugin.signInWithPhoneNumber({ phoneNumber: `+91${phone}` }).catch(reject)
     })
     nativePhone = phone
     return null

@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { BottomNav } from '../../components/BottomNav'
-import { ClipboardList, Users, DollarSign, ChevronDown, ChevronUp, Package, Store } from 'lucide-react'
+import { ClipboardList, Users, DollarSign, ChevronDown, ChevronUp, Package, Store, MapPin, Wrench } from 'lucide-react'
 import { MILESTONES } from '../../hooks/useWorkerProgress'
 import type { Worker } from '../../types'
 
@@ -15,6 +15,8 @@ const NAV = [
   { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
   { to: '/admin/materials', icon: Package, label: 'Materials' },
   { to: '/admin/stores', icon: Store, label: 'Stores' },
+  { to: '/admin/cities', icon: MapPin, label: 'Cities' },
+  { to: '/admin/services', icon: Wrench, label: 'Services' },
 ]
 
 export default function AdminWorkers() {

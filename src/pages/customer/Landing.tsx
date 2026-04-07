@@ -87,16 +87,6 @@ export default function CustomerLanding() {
           <ChevronRight size={22} />
         </button>
 
-        <p className="text-center text-xs text-[var(--muted)] pb-2">
-          Are you a professional?{' '}
-          <button
-            onClick={() => navigate('/worker/login')}
-            className="text-[#E85520] font-semibold"
-          >
-            Join as a Pro
-          </button>
-        </p>
-
         <LegalLinks />
       </div>
 
