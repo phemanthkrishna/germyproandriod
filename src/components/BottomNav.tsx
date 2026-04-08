@@ -11,7 +11,7 @@ interface NavItem {
 export function BottomNav({ items }: { items: NavItem[] }) {
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[var(--surface)] border-t border-[var(--border)] flex z-50"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[var(--surface)] border-t border-[var(--border)] flex overflow-x-auto no-scrollbar z-50"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       {items.map(({ to, icon: Icon, label, activeColor }) => (
@@ -20,7 +20,7 @@ export function BottomNav({ items }: { items: NavItem[] }) {
           to={to}
           end
           className={({ isActive }) =>
-            `flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors ${
+            `flex-shrink-0 min-w-[64px] flex flex-col items-center justify-center py-3 gap-1 transition-colors ${
               isActive ? '' : 'text-slate-500'
             }`
           }

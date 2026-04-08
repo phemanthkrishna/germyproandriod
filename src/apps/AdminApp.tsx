@@ -3,6 +3,7 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from '../context/AuthContext'
 import { ThemeProvider } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import AdminLayout from '../components/AdminLayout'
 
 // Pages
 import AdminLogin from '../pages/admin/Login'
@@ -14,6 +15,9 @@ import AdminMaterials from '../pages/admin/Materials'
 import AdminStores from '../pages/admin/Stores'
 import AdminCities from '../pages/admin/Cities'
 import AdminServices from '../pages/admin/Services'
+import AdminAnalytics from '../pages/admin/Analytics'
+import AdminPromos from '../pages/admin/Promos'
+import AdminCampaigns from '../pages/admin/Campaigns'
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
   const { session, loading } = useAuth()
@@ -26,14 +30,22 @@ function AdminRoutes() {
   return (
     <Routes>
       <Route path="/admin/login" element={<AdminLogin />} />
-      <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
-      <Route path="/admin/orders/:orderId" element={<RequireAdmin><AdminOrderDetail /></RequireAdmin>} />
-      <Route path="/admin/workers" element={<RequireAdmin><AdminWorkers /></RequireAdmin>} />
-      <Route path="/admin/payments" element={<RequireAdmin><AdminPayments /></RequireAdmin>} />
-      <Route path="/admin/materials" element={<RequireAdmin><AdminMaterials /></RequireAdmin>} />
-      <Route path="/admin/stores" element={<RequireAdmin><AdminStores /></RequireAdmin>} />
-      <Route path="/admin/cities" element={<RequireAdmin><AdminCities /></RequireAdmin>} />
-      <Route path="/admin/services" element={<RequireAdmin><AdminServices /></RequireAdmin>} />
+      <Route
+        path="/admin"
+        element={<RequireAdmin><AdminLayout /></RequireAdmin>}
+      >
+        <Route index element={<AdminDashboard />} />
+        <Route path="orders/:orderId" element={<AdminOrderDetail />} />
+        <Route path="workers" element={<AdminWorkers />} />
+        <Route path="payments" element={<AdminPayments />} />
+        <Route path="materials" element={<AdminMaterials />} />
+        <Route path="stores" element={<AdminStores />} />
+        <Route path="cities" element={<AdminCities />} />
+        <Route path="services" element={<AdminServices />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="promos" element={<AdminPromos />} />
+        <Route path="campaigns" element={<AdminCampaigns />} />
+      </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )
@@ -44,12 +56,11 @@ export default function AdminApp() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <div className="app-shell">
+          <div className="admin-shell">
             <AdminRoutes />
           </div>
           <Toaster
-            position="top-center"
-            offset={{ top: 'max(16px, env(safe-area-inset-top, 16px))' } as any}
+            position="top-right"
             toastOptions={{
               style: {
                 background: 'var(--surface)',

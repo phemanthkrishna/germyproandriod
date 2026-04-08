@@ -4,17 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
-import { BottomNav } from '../../components/BottomNav'
-import { ClipboardList, Users, DollarSign, Package, Store, MapPin, Plus, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react'
-
-const NAV = [
-  { to: '/admin',           icon: ClipboardList, label: 'Orders'   },
-  { to: '/admin/workers',   icon: Users,         label: 'Workers'  },
-  { to: '/admin/payments',  icon: DollarSign,    label: 'Payments' },
-  { to: '/admin/materials', icon: Package,       label: 'Materials'},
-  { to: '/admin/stores',    icon: Store,         label: 'Stores'   },
-  { to: '/admin/cities',    icon: MapPin,        label: 'Cities'   },
-]
+import { Plus, ToggleLeft, ToggleRight, Trash2, MapPin } from 'lucide-react'
 
 interface CityRow {
   id: string
@@ -105,7 +95,7 @@ export default function AdminCities() {
   const activeCount = cities.filter(c => c.is_active).length
 
   return (
-    <div className="page-content px-5 py-6">
+    <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black font-heading text-slate-50">Service Cities</h1>
@@ -243,7 +233,6 @@ export default function AdminCities() {
         </p>
       </div>
 
-      <BottomNav items={NAV} />
     </div>
   )
 }

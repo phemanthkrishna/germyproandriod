@@ -1,21 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { BottomNav } from '../../components/BottomNav'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { ClipboardList, Users, DollarSign, Package, Store, MapPin, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Order, BonusClaim } from '../../types'
 import { BOOKING_FEE, VISITING_CHARGE } from '../../constants'
-
-const NAV = [
-  { to: '/admin', icon: ClipboardList, label: 'Orders' },
-  { to: '/admin/workers', icon: Users, label: 'Workers' },
-  { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
-  { to: '/admin/materials', icon: Package, label: 'Materials' },
-  { to: '/admin/stores', icon: Store, label: 'Stores' },
-  { to: '/admin/cities', icon: MapPin, label: 'Cities' },
-  { to: '/admin/services', icon: Wrench, label: 'Services' },
-]
 
 const PLATFORM_FEE = BOOKING_FEE - VISITING_CHARGE  // ₹25 kept from each booking
 const WORKER_VISIT = VISITING_CHARGE                 // ₹100 visiting charge → to worker
@@ -133,7 +121,7 @@ export default function AdminPayments() {
   }
 
   return (
-    <div className="page-content px-5 py-6">
+    <div className="p-6">
       <h1 className="text-2xl font-black font-heading text-slate-50 mb-5">Payments & Revenue</h1>
 
       {/* ── Money In ── */}
@@ -308,7 +296,6 @@ export default function AdminPayments() {
         </>
       )}
 
-      <BottomNav items={NAV} />
     </div>
   )
 }

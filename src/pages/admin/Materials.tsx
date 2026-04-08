@@ -1,22 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { BottomNav } from '../../components/BottomNav'
 import { Card } from '../../components/ui/Card'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { ClipboardList, Users, DollarSign, Package, TrendingUp, Store, MapPin, Wrench } from 'lucide-react'
+import { TrendingUp, Store } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { Order } from '../../types'
-
-const NAV = [
-  { to: '/admin', icon: ClipboardList, label: 'Orders' },
-  { to: '/admin/workers', icon: Users, label: 'Workers' },
-  { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
-  { to: '/admin/materials', icon: Package, label: 'Materials' },
-  { to: '/admin/stores', icon: Store, label: 'Stores' },
-  { to: '/admin/cities', icon: MapPin, label: 'Cities' },
-  { to: '/admin/services', icon: Wrench, label: 'Services' },
-]
 
 const DISCOUNT_OPTIONS = [15, 17, 18, 20]
 
@@ -80,7 +69,7 @@ export default function AdminMaterials() {
   const totalCommissionEarned = paid.reduce((s, o) => s + (o.mat_commission || 0), 0)
 
   return (
-    <div className="page-content px-5 py-6">
+    <div className="p-6">
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-black font-heading text-slate-50">Materials</h1>
         <Link to="/admin/stores" className="flex items-center gap-1 text-xs text-blue-400 border border-blue-500/30 rounded-lg px-3 py-1.5">
@@ -172,7 +161,6 @@ export default function AdminMaterials() {
         <div className="text-center py-16 text-slate-500 text-sm">No material orders yet</div>
       )}
 
-      <BottomNav items={NAV} />
     </div>
   )
 }

@@ -1,23 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { StatusBadge } from '../../components/StatusBadge'
-import { BottomNav } from '../../components/BottomNav'
-import { ThemeToggle } from '../../components/ThemeToggle'
 import { formatDate } from '../../lib/utils'
-import { ClipboardList, Users, DollarSign, Package, Store, MapPin, Wrench } from 'lucide-react'
 import type { Order } from '../../types'
-
-const NAV = [
-  { to: '/admin', icon: ClipboardList, label: 'Orders' },
-  { to: '/admin/workers', icon: Users, label: 'Workers' },
-  { to: '/admin/payments', icon: DollarSign, label: 'Payments' },
-  { to: '/admin/materials', icon: Package, label: 'Materials' },
-  { to: '/admin/stores', icon: Store, label: 'Stores' },
-  { to: '/admin/cities', icon: MapPin, label: 'Cities' },
-  { to: '/admin/services', icon: Wrench, label: 'Services' },
-]
 
 const FILTERS = ['All', 'Assign Worker', 'In Progress', 'Done']
 
@@ -29,7 +15,6 @@ const FILTER_MAP: Record<string, (o: Order) => boolean> = {
 }
 
 export default function AdminDashboard() {
-  const { signOut } = useAuth()
   const navigate = useNavigate()
   const [orders, setOrders] = useState<Order[]>([])
   const [filter, setFilter] = useState('All')
@@ -62,15 +47,9 @@ export default function AdminDashboard() {
   const completed = orders.filter(o => o.status === 'completed').length
 
   return (
-    <div className="page-content px-5 py-6">
+    <div className="p-6">
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-black font-heading text-slate-50">Admin Dashboard</h1>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <button onClick={signOut} className="text-xs text-slate-500 border border-slate-700 rounded-lg px-3 py-1.5">
-            Sign Out
-          </button>
-        </div>
       </div>
 
       {/* Stats */}
@@ -124,7 +103,6 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <BottomNav items={NAV} />
     </div>
   )
 }

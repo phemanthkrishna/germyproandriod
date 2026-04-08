@@ -37,3 +37,9 @@ verify_jwt = true
 
 [functions.cashfree-webhook]
 verify_jwt = false
+
+[functions.send-campaign]
+verify_jwt = false
+
+[functions.customer-reengagement]
+verify_jwt = false

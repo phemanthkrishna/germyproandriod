@@ -1,19 +1,8 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
-import { BottomNav } from '../../components/BottomNav'
 import { SERVICES } from '../../constants'
-import { ClipboardList, Users, DollarSign, Package, Store, MapPin, Wrench, ToggleLeft, ToggleRight } from 'lucide-react'
-
-const NAV = [
-  { to: '/admin',           icon: ClipboardList, label: 'Orders'   },
-  { to: '/admin/workers',   icon: Users,         label: 'Workers'  },
-  { to: '/admin/payments',  icon: DollarSign,    label: 'Payments' },
-  { to: '/admin/materials', icon: Package,       label: 'Materials'},
-  { to: '/admin/stores',    icon: Store,         label: 'Stores'   },
-  { to: '/admin/cities',    icon: MapPin,        label: 'Cities'   },
-  { to: '/admin/services',  icon: Wrench,        label: 'Services' },
-]
+import { ToggleLeft, ToggleRight } from 'lucide-react'
 
 interface ServiceRow {
   id: string
@@ -60,7 +49,7 @@ export default function AdminServices() {
   const activeCount = rows.filter(r => r.is_active).length
 
   return (
-    <div className="page-content px-5 py-6">
+    <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-black font-heading text-slate-50">Services</h1>
         <p className="text-slate-400 text-sm mt-0.5">
@@ -126,7 +115,6 @@ export default function AdminServices() {
         </p>
       </div>
 
-      <BottomNav items={NAV} />
     </div>
   )
 }

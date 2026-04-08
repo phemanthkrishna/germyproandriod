@@ -40,6 +40,12 @@ export default function Book() {
   const [codeWorkerName, setCodeWorkerName] = useState<string | null>(null)
   const [codeError, setCodeError] = useState<string | null>(null)
   const [checkingCode, setCheckingCode] = useState(false)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoDiscount, setPromoDiscount] = useState(0)
+  const [promoType, setPromoType] = useState<'fixed' | 'percent'>('fixed')
+  const [promoId, setPromoId] = useState<string | null>(null)
+  const [promoError, setPromoError] = useState<string | null>(null)
+  const [checkingPromo, setCheckingPromo] = useState(false)
   const { session } = useAuth()
   const navigate = useNavigate()
   const { activeServices } = useActiveServices()
@@ -102,6 +108,27 @@ export default function Book() {
       })
   }, [workerCode])
 
+  // Promo code validation
+  useEffect(() => {
+    const code = promoCode.trim().toUpperCase()
+    if (!code) { setPromoDiscount(0); setPromoId(null); setPromoError(null); return }
+    setCheckingPromo(true)
+    supabase.from('promo_codes')
+      .select('id, discount_type, discount_value, max_uses, used_count, valid_until, is_active')
+      .eq('code', code)
+      .maybeSingle()
+      .then(({ data }) => {
+        setCheckingPromo(false)
+        if (!data || !data.is_active) { setPromoError('Invalid or inactive code'); setPromoDiscount(0); setPromoId(null); return }
+        if (data.valid_until && new Date(data.valid_until) < new Date()) { setPromoError('Code has expired'); setPromoDiscount(0); setPromoId(null); return }
+        if (data.max_uses != null && data.used_count >= data.max_uses) { setPromoError('Code usage limit reached'); setPromoDiscount(0); setPromoId(null); return }
+        setPromoError(null)
+        setPromoId(data.id)
+        setPromoType(data.discount_type)
+        setPromoDiscount(data.discount_value)
+      })
+  }, [promoCode])
+
   const serviceObj = SERVICES.find(s => s.name === selectedService)
 
   async function handleBook() {
@@ -131,6 +158,15 @@ export default function Book() {
 
       const detectedCity = localStorage.getItem('gmp_detected_city') || null
 
+      // Apply promo discount to booking fee
+      let effectiveBookingAmt = BOOKING_FEE
+      if (promoId && promoDiscount > 0) {
+        const discount = promoType === 'percent'
+          ? Math.round(BOOKING_FEE * promoDiscount / 100)
+          : promoDiscount
+        effectiveBookingAmt = Math.max(0, BOOKING_FEE - discount)
+      }
+
       const { error } = await supabase.from('orders').insert({
         id: orderId,
         customer_id: session.id,
@@ -144,7 +180,7 @@ export default function Book() {
         customer_city: detectedCity,
         problem_description: problem || null,
         status: 'booked',
-        booking_amt: BOOKING_FEE,
+        booking_amt: effectiveBookingAmt,
         booking_paid: false,
         final_paid: false,
         quote_materials: [],
@@ -157,6 +193,11 @@ export default function Book() {
         preferred_worker_code: preferredWorkerId ? workerCode : null,
       })
       if (error) throw error
+
+      // Increment promo used_count
+      if (promoId) {
+        await supabase.rpc('increment_promo_used', { promo_id: promoId })
+      }
 
       // Clear any saved alert for this service since they're now booking
       await supabase.from('service_alerts')
@@ -422,33 +463,70 @@ export default function Book() {
             </div>
           </div>
 
+          {/* Promo code */}
+          <div className="mb-4">
+            <label className="block text-sm text-slate-400 mb-1 font-medium">
+              Promo Code <span className="text-slate-600 text-xs">(optional)</span>
+            </label>
+            <input
+              value={promoCode}
+              onChange={e => setPromoCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
+              placeholder="e.g. FIRST50"
+              className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-4 py-3 text-slate-50 placeholder-slate-500 outline-none focus:border-green-500 transition-colors font-mono tracking-widest uppercase text-sm"
+            />
+            {checkingPromo && <p className="text-slate-500 text-xs mt-1">Checking code…</p>}
+            {promoError && <p className="text-red-400 text-xs mt-1">{promoError}</p>}
+            {promoId && promoDiscount > 0 && (
+              <p className="text-green-400 text-xs mt-1 font-semibold">
+                ✓ {promoType === 'percent' ? `${promoDiscount}%` : formatCurrency(promoDiscount)} discount applied!
+              </p>
+            )}
+          </div>
+
           {/* Payment card */}
-          <Card className="mb-5">
-            <p className="font-bold text-slate-50 mb-3">Payment Breakdown</p>
-            <div className="flex flex-col gap-2 text-sm">
-              <div className="flex justify-between text-slate-400">
-                <span>Visiting charge</span>
-                <span>{formatCurrency(VISITING_CHARGE)}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Platform fee</span>
-                <span>{formatCurrency(PLATFORM_FEE)}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Transaction fee (2.5%)</span>
-                <span>{formatCurrency(Math.round(BOOKING_FEE * TRANSACTION_FEE_RATE * 100) / 100)}</span>
-              </div>
-            </div>
-            <div className="border-t border-slate-700 mt-3 pt-3 flex justify-between items-center">
-              <span className="font-bold text-slate-50">Total to pay</span>
-              <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-full text-lg">
-                {formatCurrency(Math.round(BOOKING_FEE * (1 + TRANSACTION_FEE_RATE) * 100) / 100)}
-              </span>
-            </div>
-            <p className="text-slate-500 text-xs mt-3">
-              Worker visits, checks the job, then sends you a full quote. Payment will be collected via our secure gateway.
-            </p>
-          </Card>
+          {(() => {
+            const discountAmt = promoId && promoDiscount > 0
+              ? promoType === 'percent'
+                ? Math.round(BOOKING_FEE * promoDiscount / 100)
+                : promoDiscount
+              : 0
+            const effectiveFee = Math.max(0, BOOKING_FEE - discountAmt)
+            const total = Math.round(effectiveFee * (1 + TRANSACTION_FEE_RATE) * 100) / 100
+            return (
+              <Card className="mb-5">
+                <p className="font-bold text-slate-50 mb-3">Payment Breakdown</p>
+                <div className="flex flex-col gap-2 text-sm">
+                  <div className="flex justify-between text-slate-400">
+                    <span>Visiting charge</span>
+                    <span>{formatCurrency(VISITING_CHARGE)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Platform fee</span>
+                    <span>{formatCurrency(PLATFORM_FEE)}</span>
+                  </div>
+                  {discountAmt > 0 && (
+                    <div className="flex justify-between text-green-400 font-semibold">
+                      <span>Promo discount ({promoCode})</span>
+                      <span>−{formatCurrency(discountAmt)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-slate-400">
+                    <span>Transaction fee (2.5%)</span>
+                    <span>{formatCurrency(Math.round(effectiveFee * TRANSACTION_FEE_RATE * 100) / 100)}</span>
+                  </div>
+                </div>
+                <div className="border-t border-slate-700 mt-3 pt-3 flex justify-between items-center">
+                  <span className="font-bold text-slate-50">Total to pay</span>
+                  <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-full text-lg">
+                    {formatCurrency(total)}
+                  </span>
+                </div>
+                <p className="text-slate-500 text-xs mt-3">
+                  Worker visits, checks the job, then sends you a full quote. Payment will be collected via our secure gateway.
+                </p>
+              </Card>
+            )
+          })()}
 
           <Button size="lg" variant="accent" loading={loading} onClick={handleBook}>
             Confirm Booking →
