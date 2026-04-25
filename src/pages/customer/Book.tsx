@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { SERVICES, BOOKING_FEE, VISITING_CHARGE, PLATFORM_FEE, TRANSACTION_FEE_RATE } from '../../constants'
+import { SERVICES, BOOKING_FEE, VISITING_CHARGE, PLATFORM_FEE, TRANSACTION_FEE_RATE, PACKAGE_SERVICES } from '../../constants'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Card } from '../../components/ui/Card'
@@ -12,7 +12,8 @@ import { supabase } from '../../lib/supabase'
 import { useActiveServices } from '../../hooks/useActiveServices'
 import { generateOtp, generateOrderId, formatCurrency } from '../../lib/utils'
 import { TEST_PHONE } from '../../lib/firebaseOtp'
-import { Home, List, User, MapPin, LocateFixed } from 'lucide-react'
+import { Home, List, User, MapPin, LocateFixed, CheckCircle2 } from 'lucide-react'
+import type { AcServicePackage } from '../../types'
 
 const NAV = [
   { to: '/customer', icon: Home, label: 'Home' },
@@ -47,9 +48,13 @@ export default function Book() {
   const [promoError, setPromoError] = useState<string | null>(null)
   const [checkingPromo, setCheckingPromo] = useState(false)
   const [detecting, setDetecting] = useState(false)
+  const [acPackages, setAcPackages] = useState<AcServicePackage[]>([])
+  const [selectedPackage, setSelectedPackage] = useState<AcServicePackage | null>(null)
   const { session } = useAuth()
   const navigate = useNavigate()
   const { activeServices } = useActiveServices()
+
+  const isPackageService = PACKAGE_SERVICES.includes(selectedService)
 
   useEffect(() => {
     if (!session?.id) return
@@ -61,6 +66,17 @@ export default function Book() {
     const svc = params.get('service')
     if (svc) setSelectedService(svc)
   }, [params])
+
+  // Fetch AC packages when AC Service is selected
+  useEffect(() => {
+    if (!PACKAGE_SERVICES.includes(selectedService)) { setAcPackages([]); setSelectedPackage(null); return }
+    supabase
+      .from('ac_service_packages')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order')
+      .then(({ data }) => setAcPackages((data as AcServicePackage[]) || []))
+  }, [selectedService])
 
   useEffect(() => {
     if (!selectedService) { setWorkersAvailable(null); setAlertSaved(false); return }
@@ -172,6 +188,10 @@ export default function Book() {
       return
     }
 
+    if (isPackageService && !selectedPackage) {
+      return toast.error('Select a service package to continue')
+    }
+
     setLoading(true)
     try {
       const orderId = generateOrderId()
@@ -227,6 +247,13 @@ export default function Book() {
         comp_otp: compOtp,
         preferred_worker_id: resolvedPreferredId,
         preferred_worker_code: preferredWorkerId ? workerCode : null,
+        // AC Service package fields
+        ...(isPackageService && selectedPackage ? {
+          ac_package_id: selectedPackage.id,
+          ac_package_name: selectedPackage.name,
+          ac_package_price: selectedPackage.price,
+          ac_remaining_paid: false,
+        } : {}),
       })
       if (error) throw error
 
@@ -446,6 +473,55 @@ export default function Book() {
             <p className="text-green-400 text-sm font-semibold">Partners available — ready to book</p>
           </div>
 
+          {/* ── AC Service: package selector ── */}
+          {isPackageService && (
+            <div className="mb-5">
+              <p className="text-slate-50 font-bold text-sm mb-3">Select a Service Package</p>
+              {acPackages.length === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-4 animate-pulse">Loading packages…</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {acPackages.map(pkg => (
+                    <button
+                      key={pkg.id}
+                      type="button"
+                      onClick={() => setSelectedPackage(pkg)}
+                      className={`flex items-center justify-between rounded-2xl p-4 border-2 text-left transition-colors ${
+                        selectedPackage?.id === pkg.id
+                          ? 'border-orange-500 bg-orange-500/10'
+                          : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0 pr-3">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-50 text-sm">{pkg.name}</p>
+                          {selectedPackage?.id === pkg.id && (
+                            <CheckCircle2 size={16} className="text-orange-400 shrink-0" />
+                          )}
+                        </div>
+                        {pkg.description && (
+                          <p className="text-slate-500 text-xs mt-0.5 leading-snug">{pkg.description}</p>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-orange-400 font-black text-lg">{formatCurrency(pkg.price)}</p>
+                        <p className="text-slate-500 text-xs">fixed price</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedPackage && (
+                <div className="mt-3 bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-xs text-slate-400 leading-relaxed">
+                  <span className="text-blue-400 font-bold">How it works: </span>
+                  Pay <strong className="text-slate-200">₹125</strong> now to book. After the service is done, you pay the remaining{' '}
+                  <strong className="text-slate-200">{formatCurrency(selectedPackage.price - BOOKING_FEE)}</strong> to complete.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Form */}
           <div className="flex flex-col gap-4 mb-5">
             <div>
@@ -582,19 +658,35 @@ export default function Book() {
                   </div>
                 </div>
                 <div className="border-t border-slate-700 mt-3 pt-3 flex justify-between items-center">
-                  <span className="font-bold text-slate-50">Total to pay</span>
+                  <span className="font-bold text-slate-50">Pay now</span>
                   <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-full text-lg">
                     {formatCurrency(total)}
                   </span>
                 </div>
+                {isPackageService && selectedPackage && (
+                  <div className="border-t border-slate-700 mt-3 pt-3 flex justify-between items-center">
+                    <span className="text-slate-400 text-sm">Remaining after service</span>
+                    <span className="text-slate-200 font-bold text-sm">
+                      {formatCurrency(selectedPackage.price - effectiveFee)}
+                    </span>
+                  </div>
+                )}
                 <p className="text-slate-500 text-xs mt-3">
-                  Worker visits, checks the job, then sends you a full quote. Payment will be collected via our secure gateway.
+                  {isPackageService
+                    ? 'Pay ₹125 now to confirm. The remaining balance is collected after the service is complete.'
+                    : 'Worker visits, checks the job, then sends you a full quote. Payment will be collected via our secure gateway.'}
                 </p>
               </Card>
             )
           })()}
 
-          <Button size="lg" variant="accent" loading={loading} onClick={handleBook}>
+          <Button
+            size="lg"
+            variant="accent"
+            loading={loading}
+            onClick={handleBook}
+            disabled={isPackageService && !selectedPackage}
+          >
             Confirm Booking →
           </Button>
         </>

@@ -21,6 +21,7 @@ import AdminAnalytics from '../pages/admin/Analytics'
 import AdminPromos from '../pages/admin/Promos'
 import AdminCampaigns from '../pages/admin/Campaigns'
 import AdminAccounts from '../pages/admin/Accounts'
+import AdminAcPackages from '../pages/admin/AcPackages'
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
   const { session, loading } = useAuth()
@@ -54,7 +55,8 @@ function AdminRoutes() {
         <Route path="materials" element={<RequireRole path="/admin/materials"><AdminMaterials /></RequireRole>} />
         <Route path="stores"    element={<RequireRole path="/admin/stores"><AdminStores /></RequireRole>} />
         <Route path="cities"    element={<RequireRole path="/admin/cities"><AdminCities /></RequireRole>} />
-        <Route path="services"  element={<RequireRole path="/admin/services"><AdminServices /></RequireRole>} />
+        <Route path="services"     element={<RequireRole path="/admin/services"><AdminServices /></RequireRole>} />
+        <Route path="ac-packages" element={<RequireRole path="/admin/ac-packages"><AdminAcPackages /></RequireRole>} />
         <Route path="analytics" element={<RequireRole path="/admin/analytics"><AdminAnalytics /></RequireRole>} />
         <Route path="promos"    element={<RequireRole path="/admin/promos"><AdminPromos /></RequireRole>} />
         <Route path="campaigns" element={<RequireRole path="/admin/campaigns"><AdminCampaigns /></RequireRole>} />

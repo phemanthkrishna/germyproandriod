@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase'
 import { formatDate, formatCurrency } from '../../lib/utils'
 import { haversineDistance } from '../../lib/utils'
 import { ArrowLeft, Upload, Plus, X, Navigation, Phone, Camera } from 'lucide-react'
+import { PACKAGE_SERVICES } from '../../constants'
 
 const PROXIMITY_KM = 0.2 // 200 meters
 import type { QuoteMaterial } from '../../types'
@@ -327,6 +328,11 @@ export default function JobDetail() {
       toast.error(`Too many wrong attempts. Try again in ${secs}s`)
       return
     }
+    // For AC Service, ensure customer has paid the remaining balance first
+    if (PACKAGE_SERVICES.includes(order!.service) && !order!.ac_remaining_paid) {
+      toast.error('Waiting for customer to pay the remaining balance')
+      return
+    }
     const nearSite = await checkProximity()
     if (!nearSite) return
     if (compOtp !== order!.comp_otp) {
@@ -442,8 +448,52 @@ export default function JobDetail() {
         </Card>
       )}
 
-      {/* inspecting: show quote form */}
-      {isMyJob && order.status === 'inspecting' && !order.labour_approval_pending && (
+      {/* AC Service: package info banner for worker */}
+      {isMyJob && PACKAGE_SERVICES.includes(order.service) && order.ac_package_name && (
+        <Card className="mb-4 border-blue-500/20 bg-blue-500/5">
+          <p className="font-bold text-slate-50 mb-2">❄️ Fixed-Price Package</p>
+          <div className="flex items-center justify-between">
+            <p className="text-slate-200 text-sm font-semibold">{order.ac_package_name}</p>
+            <p className="text-orange-400 font-black text-lg">{formatCurrency(order.ac_package_price || 0)}</p>
+          </div>
+          <p className="text-slate-500 text-xs mt-1">
+            No quote needed — perform the service, then mark complete. Customer pays remaining after you upload the completion photo.
+          </p>
+        </Card>
+      )}
+
+      {/* inspecting: show quote form — skip for package services */}
+      {isMyJob && order.status === 'inspecting' && !order.labour_approval_pending && PACKAGE_SERVICES.includes(order.service) && (
+        <Card className="mb-4">
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-blue-400 text-sm">
+            ✅ This is a fixed-price package. Perform the service and proceed to upload a completion photo.
+          </div>
+          <Button
+            size="lg"
+            variant="accent"
+            loading={saving}
+            className="mt-3"
+            onClick={async () => {
+              setSaving(true)
+              const { error } = await supabase.from('orders').update({
+                status: 'in_progress',
+                quote_labour: 0,
+                mat_cost_admin: 0,
+                total_quote: order.ac_package_price || 0,
+                final_paid: true, // booking fee already covers; remaining collected separately
+              }).eq('id', order!.id)
+              if (error) toast.error(error.message)
+              else { toast.success('Started! Proceed with the service.'); refetch() }
+              setSaving(false)
+            }}
+          >
+            Start Service →
+          </Button>
+        </Card>
+      )}
+
+      {/* inspecting: show quote form — normal (non-package) services */}
+      {isMyJob && order.status === 'inspecting' && !order.labour_approval_pending && !PACKAGE_SERVICES.includes(order.service) && (
         <Card className="mb-4">
           <p className="font-bold text-slate-50 mb-1">Send Quote</p>
           <div className="flex flex-col gap-4">
@@ -691,12 +741,26 @@ export default function JobDetail() {
           {order.job_photo_url && (
             <img src={order.job_photo_url} alt="Completion" className="rounded-xl w-full object-cover mb-4" />
           )}
-          <p className="font-bold text-slate-50 mb-2">Enter Completion OTP</p>
-          <p className="text-slate-400 text-sm mb-4">Ask customer for their completion code</p>
-          <OtpInput value={compOtp} onChange={setCompOtp} length={4} />
-          <Button size="lg" variant="primary" loading={saving} onClick={verifyCompOtp} className="mt-4">
-            Verify OTP & Complete Job ✓
-          </Button>
+          {/* AC Service: waiting for remaining payment */}
+          {PACKAGE_SERVICES.includes(order.service) && !order.ac_remaining_paid ? (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
+              <p className="text-amber-400 font-bold text-sm mb-1">⏳ Waiting for customer payment</p>
+              <p className="text-slate-400 text-xs">
+                Customer needs to pay{' '}
+                <strong className="text-slate-200">{formatCurrency((order.ac_package_price || 0) - order.booking_amt)}</strong>{' '}
+                remaining balance before you can complete the job.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="font-bold text-slate-50 mb-2">Enter Completion OTP</p>
+              <p className="text-slate-400 text-sm mb-4">Ask customer for their completion code</p>
+              <OtpInput value={compOtp} onChange={setCompOtp} length={4} />
+              <Button size="lg" variant="primary" loading={saving} onClick={verifyCompOtp} className="mt-4">
+                Verify OTP & Complete Job ✓
+              </Button>
+            </>
+          )}
         </Card>
       )}
 
@@ -704,10 +768,21 @@ export default function JobDetail() {
         <Card className="border-green-500/30 bg-green-500/10 mb-4">
           <p className="text-green-400 font-bold">🎉 Job Completed</p>
           <div className="mt-2">
-            <p className="text-slate-300 text-sm font-semibold">
-              Total Earned: {formatCurrency((order.quote_labour || 0) + 100)}
-            </p>
-            <p className="text-slate-500 text-xs mt-0.5">+₹100 booking bonus included</p>
+            {PACKAGE_SERVICES.includes(order.service) ? (
+              <>
+                <p className="text-slate-300 text-sm font-semibold">
+                  Package: {order.ac_package_name}
+                </p>
+                <p className="text-slate-500 text-xs mt-0.5">Payment will be credited to your account</p>
+              </>
+            ) : (
+              <>
+                <p className="text-slate-300 text-sm font-semibold">
+                  Total Earned: {formatCurrency((order.quote_labour || 0) + 100)}
+                </p>
+                <p className="text-slate-500 text-xs mt-0.5">+₹100 booking bonus included</p>
+              </>
+            )}
           </div>
         </Card>
       )}

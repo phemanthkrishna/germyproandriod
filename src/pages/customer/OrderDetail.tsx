@@ -34,7 +34,7 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 }
 import { supabase } from '../../lib/supabase'
 import { formatDate, formatCurrency } from '../../lib/utils'
-import { TRANSACTION_FEE_RATE } from '../../constants'
+import { TRANSACTION_FEE_RATE, PACKAGE_SERVICES } from '../../constants'
 import { ArrowLeft, Star, Phone } from 'lucide-react'
 import { MILESTONES } from '../../hooks/useWorkerProgress'
 import type { Milestone } from '../../hooks/useWorkerProgress'
@@ -198,6 +198,21 @@ export default function CustomerOrderDetail() {
       refetch()
     } catch (err: any) {
       console.error('Final pay failed:', err)
+      toast.error(err?.message || 'Failed to process payment, please try again')
+    }
+    setSaving(false)
+  }
+
+  // AC Service: pay the remaining balance after the service is done
+  async function handleRemainingPay() {
+    if (!order) return
+    setSaving(true)
+    try {
+      await supabase.from('orders').update({ ac_remaining_paid: true, final_paid: true }).eq('id', order.id)
+      toast.success('Payment successful! Thank you.')
+      refetch()
+    } catch (err: any) {
+      console.error('Remaining pay failed:', err)
       toast.error(err?.message || 'Failed to process payment, please try again')
     }
     setSaving(false)
@@ -397,6 +412,52 @@ export default function CustomerOrderDetail() {
           <div className="text-5xl font-black text-white tracking-widest text-center py-3">
             {order.comp_otp}
           </div>
+        </Card>
+      )}
+
+      {/* ── AC Service: Package info card ──────────────────────────── */}
+      {PACKAGE_SERVICES.includes(order.service) && order.ac_package_name && (
+        <Card className="mb-4 border-blue-500/20 bg-blue-500/5">
+          <p className="font-bold text-slate-50 mb-3">❄️ Service Package</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-200 font-semibold text-sm">{order.ac_package_name}</p>
+              <p className="text-slate-500 text-xs mt-0.5">Fixed price service</p>
+            </div>
+            <p className="text-orange-400 font-black text-xl">{formatCurrency(order.ac_package_price || 0)}</p>
+          </div>
+          <div className="border-t border-slate-700 mt-3 pt-3 flex flex-col gap-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Booking paid</span>
+              <span className="text-green-400 font-semibold">{formatCurrency(order.booking_amt)} ✓</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Remaining balance</span>
+              <span className={`font-semibold ${order.ac_remaining_paid ? 'text-green-400' : 'text-slate-200'}`}>
+                {formatCurrency((order.ac_package_price || 0) - order.booking_amt)}
+                {order.ac_remaining_paid ? ' ✓' : ''}
+              </span>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ── AC Service: Remaining payment after job done ────────────── */}
+      {PACKAGE_SERVICES.includes(order.service) && order.status === 'done_uploaded' && !order.ac_remaining_paid && (
+        <Card className="mb-4 border-orange-500/30 bg-orange-500/5">
+          <p className="font-bold text-slate-50 mb-2">💳 Complete Your Payment</p>
+          <p className="text-slate-400 text-sm mb-4">
+            The service is done! Pay the remaining balance to confirm completion.
+          </p>
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-slate-400 text-sm">Remaining balance</span>
+            <span className="text-orange-400 font-black text-xl">
+              {formatCurrency((order.ac_package_price || 0) - order.booking_amt)}
+            </span>
+          </div>
+          <Button size="lg" variant="accent" loading={saving} onClick={handleRemainingPay}>
+            Pay Remaining →
+          </Button>
         </Card>
       )}
 

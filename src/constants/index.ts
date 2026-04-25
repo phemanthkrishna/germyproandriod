@@ -1,13 +1,17 @@
 export const SERVICES = [
-  { id: 1, emoji: '🔧', name: 'Plumbing',    desc: 'Leaks, pipes & taps',    live: true  },
-  { id: 2, emoji: '⚡', name: 'Electrician', desc: 'Wiring & switches',       live: true  },
-  { id: 3, emoji: '🪚', name: 'Carpentry',   desc: 'Furniture & doors',       live: false },
-  { id: 4, emoji: '❄️', name: 'AC Service',  desc: 'Repair & gas refill',     live: false },
-  { id: 5, emoji: '🧹', name: 'Deep Clean',  desc: 'Home & sofa cleaning',    live: false },
-  { id: 6, emoji: '🖌️', name: 'Painting',   desc: 'Interior & exterior',     live: false },
-  { id: 7, emoji: '🚿', name: 'Bathroom',    desc: 'Tiles & fixtures',        live: false },
-  { id: 8, emoji: '🔐', name: 'Locksmith',   desc: 'Locks & keys',            live: false },
+  { id: 1,  emoji: '🔧', name: 'Plumbing',          desc: 'Leaks, pipes & taps',    live: true  },
+  { id: 2,  emoji: '⚡', name: 'Electrician',        desc: 'Wiring & switches',       live: true  },
+  { id: 3,  emoji: '🪚', name: 'Carpentry',          desc: 'Furniture & doors',       live: false },
+  { id: 4,  emoji: '❄️', name: 'AC Service',         desc: 'Fixed-price service packages', live: false },
+  { id: 9,  emoji: '🔩', name: 'AC Repair',          desc: 'Diagnosis & repair',      live: false },
+  { id: 5,  emoji: '🧹', name: 'Deep Clean',         desc: 'Home & sofa cleaning',    live: false },
+  { id: 6,  emoji: '🖌️', name: 'Painting',          desc: 'Interior & exterior',     live: false },
+  { id: 7,  emoji: '🚿', name: 'Bathroom',           desc: 'Tiles & fixtures',        live: false },
+  { id: 8,  emoji: '🔐', name: 'Locksmith',          desc: 'Locks & keys',            live: false },
 ]
+
+// Services that use the fixed-package flow instead of the normal quote flow
+export const PACKAGE_SERVICES = ['AC Service']
 
 export const VISITING_CHARGE = 100
 export const PLATFORM_FEE = 25

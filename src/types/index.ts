@@ -99,6 +99,22 @@ export interface Order {
   preferred_worker_id?: string | null
   preferred_worker_code?: string | null
   mat_list_photo_url?: string
+  // AC Service package flow
+  ac_package_id?: string | null
+  ac_package_name?: string | null
+  ac_package_price?: number | null
+  ac_remaining_paid?: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AcServicePackage {
+  id: string
+  name: string
+  description?: string
+  price: number
+  is_active: boolean
+  sort_order: number
   created_at: string
   updated_at: string
 }
