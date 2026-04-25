@@ -42,8 +42,16 @@ async function initCustomerFCM(customerId: string) {
   if (!Capacitor.isNativePlatform()) return
 
   try {
-    const { receive } = await FirebaseMessaging.requestPermissions()
-    if (receive !== 'granted') return
+    // Check current permission status first
+    const perm = await FirebaseMessaging.checkPermissions()
+    if (perm.receive !== 'granted') {
+      // Request permission — shows native Android 13+ dialog
+      const result = await FirebaseMessaging.requestPermissions()
+      if (result.receive !== 'granted') {
+        console.warn('Notification permission denied')
+        return
+      }
+    }
 
     const { token } = await FirebaseMessaging.getToken()
     if (token) {
@@ -53,6 +61,11 @@ async function initCustomerFCM(customerId: string) {
     // Keep token fresh if Firebase rotates it
     await FirebaseMessaging.addListener('tokenReceived', async ({ token: newToken }) => {
       await supabase.from('profiles').update({ fcm_token: newToken }).eq('id', customerId)
+    })
+
+    // Handle foreground notifications (show them as local notifications)
+    await FirebaseMessaging.addListener('notificationReceived', (notification) => {
+      console.log('Foreground notification:', notification)
     })
   } catch (err) {
     console.error('Customer FCM init failed:', err)

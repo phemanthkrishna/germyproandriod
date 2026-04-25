@@ -21,10 +21,28 @@ export default function AdminOrderDetail() {
   const [selectedWorker, setSelectedWorker] = useState('')
   const [selectedStore, setSelectedStore] = useState('')
   const [saving, setSaving] = useState(false)
+  const [workerActiveJobs, setWorkerActiveJobs] = useState<Record<string, number>>({})
 
   useEffect(() => {
     supabase.from('workers').select('*').eq('verified', true).eq('is_active', true).eq('is_online', true)
-      .then(({ data, error }) => { if (!error) setWorkers((data as Worker[]) || []) })
+      .then(async ({ data, error }) => {
+        if (error || !data) return
+        const list = data as Worker[]
+        setWorkers(list)
+        // Fetch active job count per worker
+        if (list.length > 0) {
+          const { data: activeOrders } = await supabase
+            .from('orders')
+            .select('worker_id')
+            .in('worker_id', list.map(w => w.id))
+            .not('status', 'in', '("completed","cancelled")')
+          const counts: Record<string, number> = {}
+          for (const o of (activeOrders || [])) {
+            if (o.worker_id) counts[o.worker_id] = (counts[o.worker_id] || 0) + 1
+          }
+          setWorkerActiveJobs(counts)
+        }
+      })
     supabase.from('stores').select('id,name,store_type,contact').order('name')
       .then(({ data, error }) => { if (!error) setStores((data as StoreRow[]) || []) })
   }, [])
@@ -53,6 +71,7 @@ export default function AdminOrderDetail() {
   }
 
   async function approveLabour() {
+    if (!confirm(`Approve labour charge of ${formatCurrency(order!.labour_pending_amount || 0)}? This will send a payment request to the customer.`)) return
     setSaving(true)
     const labourAmt = order!.labour_pending_amount || 0
     const validMats = Array.isArray(order!.quote_materials) && order!.quote_materials.length > 0
@@ -95,6 +114,7 @@ export default function AdminOrderDetail() {
   }
 
   async function rejectLabour() {
+    if (!confirm(`Reject the ₹${order!.labour_pending_amount} labour charge? The worker will need to re-enter it.`)) return
     setSaving(true)
     const { error } = await supabase.from('orders').update({
       labour_approval_pending: false,
@@ -191,9 +211,16 @@ export default function AdminOrderDetail() {
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-50 outline-none mb-3"
               >
                 <option value="">Select worker</option>
-                {workerOptions.map(w => (
-                  <option key={w.id} value={w.id}>{w.name} — {w.service} · {w.phone}</option>
-                ))}
+                {workerOptions.map(w => {
+                  const active = workerActiveJobs[w.id] || 0
+                  const load = active === 0 ? 'Free' : `${active} active job${active > 1 ? 's' : ''}`
+                  const rating = w.avg_rating ? ` · ★${w.avg_rating}` : ''
+                  return (
+                    <option key={w.id} value={w.id}>
+                      {w.name} — {load}{rating} · {w.phone}
+                    </option>
+                  )
+                })}
               </select>
               <Button variant="accent" loading={saving} onClick={assignWorker}>
                 Assign & Notify →

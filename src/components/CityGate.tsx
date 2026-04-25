@@ -5,6 +5,10 @@ import { MapPin, Loader2, RefreshCw } from 'lucide-react'
 
 type GateState = 'checking' | 'available' | 'unavailable' | 'denied' | 'error'
 
+const CITY_KEY      = 'gmp_detected_city'
+const CITY_TIME_KEY = 'gmp_city_cache_time'
+const CITY_TTL_MS   = 24 * 60 * 60 * 1000 // 24 hours
+
 async function getCityFromCoords(lat: number, lng: number): Promise<string | null> {
   try {
     const res = await fetch(
@@ -79,7 +83,55 @@ export function CityGate({ children }: { children: React.ReactNode }) {
   const [detectedCity, setDetectedCity] = useState<string>('')
   const [activeCities, setActiveCities] = useState<string[]>([])
 
-  useEffect(() => { check() }, [])
+  // Allow Play Store reviewers to bypass geo-lock
+  const [demoMode, setDemoMode] = useState(() => localStorage.getItem('gmp_demo_mode') === '1')
+
+  function enableDemoMode() {
+    localStorage.setItem('gmp_demo_mode', '1')
+    localStorage.setItem(CITY_KEY, 'Demo')
+    setDemoMode(true)
+  }
+
+  useEffect(() => {
+    if (demoMode) return
+
+    // If we have a recent city cache, let the user straight through and
+    // re-verify in the background.  This prevents Android's location-permission
+    // auto-revoke (12+ inactivity policy) from blocking a returning user.
+    const cachedCity = localStorage.getItem(CITY_KEY)
+    const cachedAt   = parseInt(localStorage.getItem(CITY_TIME_KEY) || '0', 10)
+    if (cachedCity && Date.now() - cachedAt < CITY_TTL_MS) {
+      setState('available')
+      // Background re-check: silently update the cache timestamp on success,
+      // or clear it if the city was deactivated (user will be gated next open).
+      checkInBackground(cachedCity)
+      return
+    }
+
+    check()
+  }, [])
+
+  /** Silent background verification — never changes visible state. */
+  async function checkInBackground(cachedCity: string) {
+    try {
+      const { data } = await supabase
+        .from('service_cities')
+        .select('city_name')
+        .eq('city_name', cachedCity)
+        .eq('is_active', true)
+        .maybeSingle()
+      if (data) {
+        // City still active — refresh the cache timestamp
+        localStorage.setItem(CITY_TIME_KEY, String(Date.now()))
+      } else {
+        // City deactivated — clear cache so next open triggers full check
+        localStorage.removeItem(CITY_KEY)
+        localStorage.removeItem(CITY_TIME_KEY)
+      }
+    } catch {
+      // Network error — keep existing cache, try again next open
+    }
+  }
 
   function check() {
     setState('checking')
@@ -105,9 +157,13 @@ export function CityGate({ children }: { children: React.ReactNode }) {
         setActiveCities(cities)
         if (matchedCity) {
           // Use the matched city name (not the village name) for order stamping
-          localStorage.setItem('gmp_detected_city', matchedCity)
+          localStorage.setItem(CITY_KEY, matchedCity)
+          localStorage.setItem(CITY_TIME_KEY, String(Date.now()))
           setState('available')
         } else {
+          // Not serviceable — clear any stale cache
+          localStorage.removeItem(CITY_KEY)
+          localStorage.removeItem(CITY_TIME_KEY)
           setState('unavailable')
         }
       },
@@ -118,6 +174,9 @@ export function CityGate({ children }: { children: React.ReactNode }) {
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 }
     )
   }
+
+  // Demo mode: skip geo-gate entirely (for Play Store review)
+  if (demoMode) return <>{children}</>
 
   if (state === 'checking') {
     return (
@@ -156,6 +215,9 @@ export function CityGate({ children }: { children: React.ReactNode }) {
         <p className="text-slate-600 text-xs">
           Settings → Apps → GetMyPro → Permissions → Location → Allow
         </p>
+        <button onClick={enableDemoMode} className="text-slate-500 text-xs underline mt-4">
+          Browse in demo mode
+        </button>
       </div>
     )
   }
@@ -242,6 +304,9 @@ export function CityGate({ children }: { children: React.ReactNode }) {
         >
           <RefreshCw size={12} /> Refresh location
         </button>
+        <button onClick={enableDemoMode} className="text-slate-500 text-xs underline mt-2">
+          Browse in demo mode
+        </button>
       </div>
     )
   }
@@ -261,6 +326,9 @@ export function CityGate({ children }: { children: React.ReactNode }) {
           className="flex items-center gap-2 gradient-brand text-white font-bold px-6 py-3 rounded-2xl"
         >
           <RefreshCw size={16} /> Retry
+        </button>
+        <button onClick={enableDemoMode} className="text-slate-500 text-xs underline mt-4">
+          Browse in demo mode
         </button>
       </div>
     )

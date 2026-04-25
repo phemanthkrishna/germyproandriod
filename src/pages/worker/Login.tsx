@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
@@ -11,6 +11,8 @@ import {
   sendOtp,
   verifyOtp,
   firebaseAuthMessage,
+  TEST_PHONE,
+  TEST_OTP,
   type ConfirmationResult,
   type RecaptchaVerifier,
 } from '../../lib/firebaseOtp'
@@ -25,6 +27,27 @@ export default function WorkerLogin() {
   const verifierRef = useRef<RecaptchaVerifier | null>(null)
   const { signIn } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Auto-login as demo worker when ?demo=1
+  useEffect(() => {
+    if (searchParams.get('demo') !== '1') return
+    setLoading(true)
+    supabase
+      .from('profiles')
+      .select('id, name, role')
+      .eq('phone', TEST_PHONE)
+      .maybeSingle()
+      .then(({ data: profile }) => {
+        if (profile?.role === 'worker') {
+          signIn({ id: profile.id, name: profile.name, phone: TEST_PHONE, role: 'worker' })
+          navigate('/worker', { replace: true })
+        } else {
+          toast.error('Demo worker account not set up — contact admin')
+          setLoading(false)
+        }
+      })
+  }, [])
 
   function initVerifier() {
     try {
@@ -49,28 +72,31 @@ export default function WorkerLogin() {
   }
 
   async function handleSendOtp() {
-    if (phone.length !== 10 || !/^[6-9]/.test(phone)) return toast.error('Enter a valid 10-digit Indian mobile number')
-    if (!verifierRef.current && !(window as any)?.Capacitor?.isNativePlatform?.()) return toast.error('reCAPTCHA not ready, refresh the page')
+    const isTest = phone === TEST_PHONE
+    if (!isTest && (phone.length !== 10 || !/^[6-9]/.test(phone))) return toast.error('Enter a valid 10-digit Indian mobile number')
+    if (!isTest && !verifierRef.current && !(window as any)?.Capacitor?.isNativePlatform?.()) return toast.error('reCAPTCHA not ready, refresh the page')
     setLoading(true)
     try {
-      const { data: worker, error: workerLookupError } = await supabase
-        .from('workers')
-        .select('id')
-        .eq('phone', phone)
-        .maybeSingle()
+      if (!isTest) {
+        const { data: worker, error: workerLookupError } = await supabase
+          .from('workers')
+          .select('id')
+          .eq('phone', phone)
+          .maybeSingle()
 
-      if (workerLookupError) throw workerLookupError
-      if (!worker) {
-        toast.error('No worker account found. Redirecting to registration...')
-        setTimeout(() => navigate('/worker/register'), 1500)
-        setLoading(false)
-        return
+        if (workerLookupError) throw workerLookupError
+        if (!worker) {
+          toast.error('No worker account found. Redirecting to registration...')
+          setTimeout(() => navigate('/worker/register'), 1500)
+          setLoading(false)
+          return
+        }
       }
 
       const result = await sendOtp(phone, verifierRef.current)
       setConfirmationResult(result)
       setStep('otp')
-      toast.success('OTP sent!')
+      toast.success(isTest ? 'Test account — use OTP 123456' : 'OTP sent!')
     } catch (e: unknown) {
       toast.error(firebaseAuthMessage(e))
       resetVerifier()
@@ -81,10 +107,12 @@ export default function WorkerLogin() {
   async function handleVerifyOtp() {
     if (otp.length < 6) return toast.error('Enter 6-digit OTP')
     const isNative = !!(window as any)?.Capacitor?.isNativePlatform?.()
-    if (!confirmationResult && !isNative) return toast.error('Please request OTP first')
+    const isTest = phone === TEST_PHONE
+    if (!confirmationResult && !isNative && !isTest) return toast.error('Please request OTP first')
+    if (isTest && otp !== TEST_OTP) return toast.error('Wrong OTP. Use 123456 for the test account.')
     setLoading(true)
     try {
-      await verifyOtp(confirmationResult, otp)
+      if (!isTest) await verifyOtp(confirmationResult, otp)
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -117,10 +145,10 @@ export default function WorkerLogin() {
       {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
         <img
-          src="/logo.png"
+          src="/logoworker.png"
           alt="GetMyPro"
           className="w-12 h-12 object-contain"
-          onError={e => { e.currentTarget.src = '/logo.svg' }}
+          onError={e => { if (!e.currentTarget.dataset.errored) { e.currentTarget.dataset.errored = '1'; e.currentTarget.style.display = 'none' } }}
         />
         <div>
           <h1 className="text-2xl font-black font-heading gradient-text leading-none">

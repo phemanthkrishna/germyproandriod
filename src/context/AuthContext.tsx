@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
-import type { StoredSession, Role } from '../types'
+import type { StoredSession, Role, AdminRole } from '../types'
 
 interface AuthContextValue {
   session: StoredSession | null
@@ -19,53 +19,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function verifyAndLoad() {
+      const raw = localStorage.getItem(SESSION_KEY)
+      if (!raw) { setLoading(false); return }
+
+      let stored: StoredSession
       try {
-        const raw = localStorage.getItem(SESSION_KEY)
-        if (!raw) { setLoading(false); return }
+        stored = JSON.parse(raw) as StoredSession
+      } catch {
+        localStorage.removeItem(SESSION_KEY)
+        setLoading(false)
+        return
+      }
 
-        const stored = JSON.parse(raw) as StoredSession
+      // Show cached session immediately — no spinner waiting for network
+      setSession(stored)
+      setLoading(false)
 
+      // Verify in background (never blocks the UI)
+      try {
         if (stored.role === 'admin') {
-          // Admin sessions are backed by Supabase Auth — verify the token is still valid
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) {
-            // Supabase Auth session expired or invalid — clear stored session
-            localStorage.removeItem(SESSION_KEY)
-            setLoading(false)
-            return
-          }
-          // Extra check: confirm DB profile still has admin role
-          const { data: profile } = await supabase
+          const { data: { user }, error: authErr } = await supabase.auth.getUser()
+          if (authErr || !user) return // Network issue — keep cached session
+          const { data: profile, error: profileErr } = await supabase
             .from('profiles')
-            .select('role')
+            .select('role, name, admin_role')
             .eq('id', user.id)
             .maybeSingle()
-          if (!profile || profile.role !== 'admin') {
+          if (profileErr || !profile) return // Network issue — keep cached session
+          if (profile.role !== 'admin') {
             localStorage.removeItem(SESSION_KEY)
             await supabase.auth.signOut()
-            setLoading(false)
+            setSession(null)
             return
           }
+          // Refresh adminRole from DB in case it changed
+          const refreshed: StoredSession = {
+            ...stored,
+            adminRole: (profile.admin_role as AdminRole) ?? 'admin',
+          }
+          localStorage.setItem(SESSION_KEY, JSON.stringify(refreshed))
+          setSession(refreshed)
         } else {
-          // Customer / worker: verify their role from the profiles table
-          // This prevents anyone from editing localStorage role to 'admin'
-          const { data: profile } = await supabase
+          const { data: profile, error: profileErr } = await supabase
             .from('profiles')
             .select('role')
             .eq('id', stored.id)
             .maybeSingle()
-          if (!profile || profile.role !== stored.role) {
+          // Network error or missing row — keep cached session, don't logout
+          if (profileErr || !profile) return
+          // Only clear if role definitively changed to a known different role.
+          // Guard against null/undefined role in DB causing a false logout.
+          const knownRoles = ['admin', 'customer', 'worker', 'store']
+          if (profile.role && knownRoles.includes(profile.role) && profile.role !== stored.role) {
             localStorage.removeItem(SESSION_KEY)
-            setLoading(false)
-            return
+            setSession(null)
           }
         }
-
-        setSession(stored)
-      } catch {
-        localStorage.removeItem(SESSION_KEY)
+      } catch (err) {
+        console.warn('Background session verify failed, keeping cached session:', err)
       }
-      setLoading(false)
     }
 
     verifyAndLoad()
@@ -79,7 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     localStorage.removeItem(SESSION_KEY)
     setSession(null)
-    // If admin session, also sign out of Supabase Auth
     await supabase.auth.signOut().catch(() => {})
   }
 

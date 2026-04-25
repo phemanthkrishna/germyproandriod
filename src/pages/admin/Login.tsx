@@ -50,7 +50,7 @@ export default function AdminLogin() {
       // Verify the authenticated user actually has admin role in our profiles table
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, name')
+        .select('role, name, admin_role')
         .eq('id', data.user.id)
         .maybeSingle()
 
@@ -62,7 +62,13 @@ export default function AdminLogin() {
       }
 
       setAttempts(0)
-      signIn({ id: data.user.id, name: profile.name || 'Admin', phone: '', role: 'admin' })
+      signIn({
+        id: data.user.id,
+        name: profile.name || 'Admin',
+        phone: '',
+        role: 'admin',
+        adminRole: profile.admin_role ?? 'admin',
+      })
       navigate('/admin')
     } catch {
       toast.error('Login failed, please try again')

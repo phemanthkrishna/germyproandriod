@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useCity } from '../../context/CityContext'
 import { Card } from '../../components/ui/Card'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import { TrendingUp, Store } from 'lucide-react'
@@ -10,6 +11,7 @@ import type { Order } from '../../types'
 const DISCOUNT_OPTIONS = [15, 17, 18, 20]
 
 export default function AdminMaterials() {
+  const { selectedCity } = useCity()
   const [orders, setOrders] = useState<Order[]>([])
   const [saving, setSaving] = useState<string | null>(null)
   const [discounts, setDiscounts] = useState<Record<string, number>>({})
@@ -22,14 +24,14 @@ export default function AdminMaterials() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => fetchOrders())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [selectedCity])
 
   async function fetchOrders() {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
+    let query = supabase.from('orders').select('*')
       .not('quote_materials', 'eq', '[]')
       .order('created_at', { ascending: false })
+    if (selectedCity) query = query.eq('customer_city', selectedCity)
+    const { data, error } = await query
     if (error) console.error('Failed to load material orders:', error.message)
     const rows = (data as Order[]) || []
     setOrders(rows)
@@ -50,9 +52,22 @@ export default function AdminMaterials() {
       mat_payment_done: true,
       mat_discount_pct: pct,
       mat_commission: commission,
+      mat_cost_store: payToStore,
     }).eq('id', order.id)
-    if (error) toast.error(error.message)
-    else toast.success(`Settled! Commission earned: ${formatCurrency(commission)} (${pct}%) · Pay store: ${formatCurrency(payToStore)}`)
+    if (error) { toast.error(error.message); setSaving(null); return }
+
+    // Log to payout_logs for audit trail
+    await supabase.from('payout_logs').insert({
+      order_id: order.id,
+      payee_type: 'store',
+      payee_id: order.mat_store_id,
+      payee_name: order.mat_store_name || 'Store',
+      amount: payToStore,
+      note: `Materials — ${order.service} · ${pct}% commission`,
+      paid_at: new Date().toISOString(),
+    })
+
+    toast.success(`Settled! Commission: ${formatCurrency(commission)} (${pct}%) · Paid store: ${formatCurrency(payToStore)}`)
     fetchOrders()
     setSaving(null)
   }

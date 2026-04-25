@@ -26,6 +26,7 @@ export default function WorkerProgress() {
 
   const {
     completedJobs,
+    qualifiedJobs,
     currentBadge,
     nextMilestone,
     progressToNext,
@@ -33,6 +34,8 @@ export default function WorkerProgress() {
     pendingBonuses,
     milestoneStatuses,
     completedMilestonesData,
+    progressPaused,
+    resumeJobsNeeded,
   } = useWorkerProgress(workerId)
 
   const [animated, setAnimated] = useState(false)
@@ -101,9 +104,9 @@ export default function WorkerProgress() {
               Your Progress
             </p>
             <p style={{ fontSize: 48, fontFamily: 'Nunito, sans-serif', fontWeight: 900, color: '#fff', lineHeight: 1, marginBottom: 2 }}>
-              {completedJobs}
+              {qualifiedJobs}
             </p>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)' }}>jobs completed</p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)' }}>qualified jobs (4+ ★)</p>
           </div>
 
           {/* Right — current badge */}
@@ -126,7 +129,7 @@ export default function WorkerProgress() {
                 Next: {nextMilestone.badge} at Job {nextMilestone.job}
               </p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>
-                {nextMilestone.job - completedJobs} more jobs
+                {nextMilestone.job - qualifiedJobs} more jobs
               </p>
             </div>
             <div style={{ height: 8, borderRadius: 20, background: 'rgba(255,255,255,0.22)', overflow: 'hidden' }}>
@@ -148,6 +151,16 @@ export default function WorkerProgress() {
           </p>
         )}
       </div>
+
+      {/* ── PROGRESS PAUSED WARNING ─────────────────────────────── */}
+      {progressPaused && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 16, padding: '14px 16px', marginBottom: 16 }}>
+          <p style={{ color: '#EF4444', fontWeight: 800, fontSize: 14, marginBottom: 4 }}>⚠️ Progress Paused</p>
+          <p style={{ color: '#94A3B8', fontSize: 13, lineHeight: 1.5 }}>
+            You received 3 low ratings in a row. Get <strong style={{ color: '#F59E0B' }}>{resumeJobsNeeded} more 5-star job{resumeJobsNeeded > 1 ? 's' : ''}</strong> to resume your progress.
+          </p>
+        </div>
+      )}
 
       {/* ── SECTION HEADING ───────────────────────────────────────── */}
       <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 16 }}>

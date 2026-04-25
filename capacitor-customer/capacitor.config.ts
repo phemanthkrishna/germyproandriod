@@ -13,6 +13,9 @@ const config: CapacitorConfig = {
       skipNativeAuth: false,
       providers: ['phone'],
     },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#1A5FB8',

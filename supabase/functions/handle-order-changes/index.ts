@@ -57,8 +57,9 @@ Deno.serve(async (req) => {
           w.fcm_token,
           'New Job Available 🔧',
           `${order.service} · ₹100 visiting charge guaranteed`,
-          { screen: 'job', orderId: order.id },
-          'normal',
+          { screen: 'job', orderId: order.id, fullscreen: 'true' },
+          'high',
+          true, // data-only so native JobNotificationService shows full-screen intent
         )
       ))
     }
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
 
       // ── WORKER NOTIFICATIONS ──────────────────────────────────────
 
-      // W1. Job assigned to a worker
+      // W1. Job assigned to a worker (worker accepted from pool — no alarm, they already know)
       if (!old.worker_id && order.worker_id) {
         const token = await getWorkerToken(order.worker_id)
         if (token) await sendNotification(
@@ -87,8 +88,9 @@ Deno.serve(async (req) => {
           token,
           'A customer requested YOU! 🎯',
           `${order.service} — they specifically want you`,
-          { screen: 'job', orderId: order.id },
+          { screen: 'job', orderId: order.id, fullscreen: 'true' },
           'high',
+          true, // data-only → full-screen intent
         )
       }
 

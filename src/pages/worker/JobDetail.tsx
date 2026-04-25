@@ -11,7 +11,10 @@ import { OtpInput } from '../../components/OtpInput'
 import { StatusBadge } from '../../components/StatusBadge'
 import { supabase } from '../../lib/supabase'
 import { formatDate, formatCurrency } from '../../lib/utils'
-import { ArrowLeft, Upload, Plus, X, Navigation, Phone } from 'lucide-react'
+import { haversineDistance } from '../../lib/utils'
+import { ArrowLeft, Upload, Plus, X, Navigation, Phone, Camera } from 'lucide-react'
+
+const PROXIMITY_KM = 0.2 // 200 meters
 import type { QuoteMaterial } from '../../types'
 
 const UNITS = ['nos', 'm', 'kg', 'L', 'box', 'pkt']
@@ -36,7 +39,7 @@ export default function JobDetail() {
 
   // Broadcast live GPS while en route AND while on the job
   const isTracking = order?.worker_id === session?.id &&
-    ['booked', 'inspecting', 'in_progress', 'material_collected', 'done_uploaded'].includes(order?.status ?? '')
+    ['booked', 'worker_visiting', 'inspecting', 'quote_sent', 'in_progress', 'material_collected', 'done_uploaded'].includes(order?.status ?? '')
   useWorkerLocation(session?.id ?? '', isTracking)
 
   // OTP rate-limiting state (5 attempts → 60s lockout per OTP type)
@@ -71,7 +74,34 @@ export default function JobDetail() {
   const [materials, setMaterials] = useState<QuoteMaterial[]>([{ name: '', qty: 1, unit: 'nos' }])
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState('')
+  const [matListPhotoUrl, setMatListPhotoUrl] = useState('')
+  const [matListPhotoPreview, setMatListPhotoPreview] = useState('')
+  const [matListUploading, setMatListUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const matListCameraRef = useRef<HTMLInputElement>(null)
+  const matListGalleryRef = useRef<HTMLInputElement>(null)
+
+  // Check if worker is near the customer's location (within 200m)
+  async function checkProximity(): Promise<boolean> {
+    if (!order?.customer_lat || !order?.customer_lng) return true // no customer coords, skip check
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) { toast.error('Location not available on this device'); resolve(false); return }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const dist = haversineDistance(pos.coords.latitude, pos.coords.longitude, order!.customer_lat!, order!.customer_lng!)
+          if (dist > PROXIMITY_KM) {
+            toast.error(`You must be within 200m of the job site. You're ${dist < 1 ? Math.round(dist * 1000) + 'm' : dist.toFixed(1) + 'km'} away.`)
+            resolve(false)
+          } else {
+            resolve(true)
+          }
+        },
+        (err) => { console.error('GPS error:', err); toast.error('Could not get your location — enable GPS and try again'); resolve(false) },
+        { enableHighAccuracy: true, timeout: 10000 }
+      )
+    })
+  }
 
   if (loading) return <div className="p-6 text-slate-400">Loading...</div>
   if (!order) return <div className="p-6 text-slate-400">Job not found</div>
@@ -96,7 +126,7 @@ export default function JobDetail() {
       return
     }
     setSaving(true)
-    // Touch last_active_at so the 4-hour inactivity timer resets
+    // Touch last_active_at so the 2-hour inactivity timer resets
     await supabase.from('workers')
       .update({ last_active_at: new Date().toISOString() })
       .eq('id', session.id)
@@ -123,6 +153,8 @@ export default function JobDetail() {
       toast.error(`Too many wrong attempts. Try again in ${secs}s`)
       return
     }
+    const nearSite = await checkProximity()
+    if (!nearSite) return
     if (arrivalOtp !== order!.arrival_otp) {
       const next = arrivalAttempts + 1
       setArrivalAttempts(next)
@@ -153,14 +185,22 @@ export default function JobDetail() {
     const labourAmt = Number(labour)
     if (labourAmt < 50) return toast.error('Labour charge must be at least ₹50')
     setSaving(true)
-    const validMats = needsMaterials ? materials.filter(m => m.name.trim()) : []
+    const validMats = needsMaterials
+      ? materials.filter(m => m.name.trim() && Number(m.qty) > 0 && m.unit)
+      : []
+    if (needsMaterials && materials.some(m => m.name.trim() && Number(m.qty) <= 0)) {
+      toast.error('All material quantities must be greater than 0')
+      setSaving(false)
+      return
+    }
 
     // > ₹1,000 requires admin approval before quote is sent
     if (labourAmt > 1_000) {
       const { error } = await supabase.from('orders').update({
         labour_approval_pending: true,
         labour_pending_amount: labourAmt,
-        quote_materials: validMats,
+        quote_materials: validMats.length > 0 ? validMats : [],
+        ...(matListPhotoUrl ? { mat_list_photo_url: matListPhotoUrl } : {}),
       }).eq('id', order!.id)
       if (error) toast.error(error.message)
       else { toast.success('Amount sent for admin approval ⏳'); refetch() }
@@ -172,6 +212,7 @@ export default function JobDetail() {
       quote_labour: labourAmt,
       quote_materials: validMats,
       status: 'quote_sent',
+      ...(matListPhotoUrl ? { mat_list_photo_url: matListPhotoUrl } : {}),
     }
     // No materials — set cost to 0 so quote goes straight to customer
     if (!needsMaterials) {
@@ -223,6 +264,29 @@ export default function JobDetail() {
     setMaterials(m => m.map((mat, idx) => idx === i ? { ...mat, [field]: val } : mat))
   }
 
+  // Upload materials list photo (photo of handwritten list)
+  async function uploadMatListPhoto(file: File) {
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error('Only JPEG, PNG, WebP or HEIC images are allowed')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5 MB')
+      return
+    }
+    setMatListUploading(true)
+    const ext = (file.name.split('.').pop() || 'jpg').replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+    const path = `mat-list/${order!.id}.${ext}`
+    const { error } = await supabase.storage.from('uploads').upload(path, file, { upsert: true })
+    if (error) { toast.error('Upload failed, please try again'); setMatListUploading(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(path)
+    setMatListPhotoUrl(publicUrl)
+    setMatListPhotoPreview(URL.createObjectURL(file))
+    toast.success('List photo uploaded ✓')
+    setMatListUploading(false)
+  }
+
   // Upload photo
   async function uploadPhoto(file: File) {
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic']
@@ -263,6 +327,8 @@ export default function JobDetail() {
       toast.error(`Too many wrong attempts. Try again in ${secs}s`)
       return
     }
+    const nearSite = await checkProximity()
+    if (!nearSite) return
     if (compOtp !== order!.comp_otp) {
       const next = compAttempts + 1
       setCompAttempts(next)
@@ -411,6 +477,53 @@ export default function JobDetail() {
             </div>
             <div className={needsMaterials ? '' : 'hidden'}>
               <p className="text-sm text-slate-400 mb-2 font-medium">Materials list</p>
+
+              {/* Photo of handwritten list option */}
+              <div className="mb-3 bg-slate-900 border border-slate-700 rounded-xl p-3">
+                <p className="text-slate-400 text-xs mb-2">📷 Take a photo of your written list instead of typing</p>
+                {matListPhotoPreview ? (
+                  <div className="relative">
+                    <img src={matListPhotoPreview} alt="Materials list" className="w-full rounded-xl object-cover max-h-48" />
+                    <button
+                      type="button"
+                      onClick={() => { setMatListPhotoPreview(''); setMatListPhotoUrl('') }}
+                      className="absolute top-2 right-2 bg-red-500/80 text-white rounded-full p-1"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => matListCameraRef.current?.click()}
+                      disabled={matListUploading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-slate-800 border border-slate-600 rounded-xl py-2.5 text-slate-300 text-sm font-medium disabled:opacity-50"
+                    >
+                      <Camera size={16} className="text-orange-400" />
+                      {matListUploading ? 'Uploading…' : 'Camera'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => matListGalleryRef.current?.click()}
+                      disabled={matListUploading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-slate-800 border border-slate-600 rounded-xl py-2.5 text-slate-300 text-sm font-medium disabled:opacity-50"
+                    >
+                      <Upload size={16} className="text-blue-400" />
+                      Gallery
+                    </button>
+                  </div>
+                )}
+                {/* Hidden inputs for mat list photo */}
+                <input ref={matListCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadMatListPhoto(f) }} />
+                <input ref={matListGalleryRef} type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadMatListPhoto(f) }} />
+                {!matListPhotoPreview && (
+                  <p className="text-slate-500 text-xs text-center mt-2">— or type the list below —</p>
+                )}
+              </div>
+
               {materials.map((m, i) => (
                 <div key={i} className="flex gap-2 mb-2 items-center overflow-hidden">
                   <input
@@ -518,31 +631,54 @@ export default function JobDetail() {
             Payment received! Start work now.
           </div>
           <p className="font-bold text-slate-50 mb-3">Upload Completion Photo</p>
-          <label className="block cursor-pointer">
-            <div className="border-2 border-dashed border-slate-600 rounded-xl p-6 text-center hover:border-orange-500 transition-colors">
-              {photoPreview || order.job_photo_url ? (
-                <img
-                  src={photoPreview || order.job_photo_url}
-                  alt="Completion"
-                  className="rounded-xl w-full object-cover"
-                />
-              ) : (
-                <>
-                  <Upload className="mx-auto text-slate-500 mb-2" size={24} />
-                  <p className="text-slate-400 text-sm">Tap to upload completion photo</p>
-                </>
-              )}
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={e => {
-                const f = e.target.files?.[0]
-                if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); uploadPhoto(f) }
-              }}
+
+          {/* Photo preview */}
+          {(photoPreview || order.job_photo_url) && (
+            <img
+              src={photoPreview || order.job_photo_url}
+              alt="Completion"
+              className="rounded-xl w-full object-cover mb-4"
             />
-          </label>
+          )}
+
+          {/* Camera + Gallery buttons */}
+          <div className="flex gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex-1 flex flex-col items-center gap-2 border-2 border-dashed border-slate-600 rounded-xl p-4 hover:border-orange-500 transition-colors"
+            >
+              <Camera className="text-orange-400" size={28} />
+              <span className="text-slate-300 text-sm font-medium">Take Photo</span>
+            </button>
+            <label className="flex-1 flex flex-col items-center gap-2 border-2 border-dashed border-slate-600 rounded-xl p-4 hover:border-orange-500 transition-colors cursor-pointer">
+              <Upload className="text-blue-400" size={28} />
+              <span className="text-slate-300 text-sm font-medium">Gallery</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); uploadPhoto(f) }
+                }}
+              />
+            </label>
+          </div>
+
+          {/* Hidden camera input */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={e => {
+              const f = e.target.files?.[0]
+              if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); uploadPhoto(f) }
+            }}
+          />
+
           <Button size="lg" variant="primary" loading={saving} onClick={markDone} className="mt-4">
             Mark Work Complete & Get OTP ✓
           </Button>

@@ -114,7 +114,12 @@ export default function AdminCampaigns() {
       setTargetService('')
       loadLogs()
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to send campaign')
+      const msg = err?.message || ''
+      if (msg.includes('Failed to send a request') || msg.includes('EdgeFunction')) {
+        toast.error('Edge function not deployed — run: npx supabase functions deploy send-campaign')
+      } else {
+        toast.error(msg || 'Failed to send campaign')
+      }
     }
     setSending(false)
   }

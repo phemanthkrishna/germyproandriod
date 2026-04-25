@@ -10,9 +10,9 @@ import { MapPicker } from '../../components/MapPicker'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useActiveServices } from '../../hooks/useActiveServices'
-import { openCashfreeCheckout } from '../../lib/cashfree'
 import { generateOtp, generateOrderId, formatCurrency } from '../../lib/utils'
-import { Home, List, User, MapPin } from 'lucide-react'
+import { TEST_PHONE } from '../../lib/firebaseOtp'
+import { Home, List, User, MapPin, LocateFixed } from 'lucide-react'
 
 const NAV = [
   { to: '/customer', icon: Home, label: 'Home' },
@@ -46,6 +46,7 @@ export default function Book() {
   const [promoId, setPromoId] = useState<string | null>(null)
   const [promoError, setPromoError] = useState<string | null>(null)
   const [checkingPromo, setCheckingPromo] = useState(false)
+  const [detecting, setDetecting] = useState(false)
   const { session } = useAuth()
   const navigate = useNavigate()
   const { activeServices } = useActiveServices()
@@ -131,10 +132,45 @@ export default function Book() {
 
   const serviceObj = SERVICES.find(s => s.name === selectedService)
 
+  const isDemoAccount = session?.phone === TEST_PHONE
+
+  const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
+
+  async function autoDetectLocation() {
+    if (!navigator.geolocation) { toast.error('Location not supported'); return }
+    setDetecting(true)
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords
+        setLat(latitude)
+        setLng(longitude)
+        try {
+          const res = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${MAPS_KEY}`
+          )
+          const data = await res.json()
+          if (data.results?.[0]?.formatted_address) {
+            setAddress(data.results[0].formatted_address)
+          }
+        } catch {
+          toast.error('Could not fetch address, but location is pinned')
+        }
+        setDetecting(false)
+      },
+      () => { toast.error('Enable GPS to auto-detect location'); setDetecting(false) },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
   async function handleBook() {
     if (!selectedService) return toast.error('Select a service')
     if (!address.trim()) return toast.error('Enter your address')
     if (!session) return
+
+    if (isDemoAccount) {
+      toast.error('Booking is disabled for the demo account')
+      return
+    }
 
     setLoading(true)
     try {
@@ -205,8 +241,12 @@ export default function Book() {
         .eq('customer_id', session.id)
         .eq('service', selectedService)
 
-      // Open Cashfree checkout — redirects user; return URL goes to order detail page
-      await openCashfreeCheckout(orderId, 'booking')
+      // TODO: Re-enable Cashfree checkout once Play Store link is whitelisted
+      // await openCashfreeCheckout(orderId, 'booking')
+      // For now, mark booking as paid and navigate directly
+      await supabase.from('orders').update({ booking_paid: true }).eq('id', orderId)
+      toast.success('Booking confirmed!')
+      navigate(`/customer/orders/${orderId}`)
     } catch (err: any) {
       console.error('Order insert failed:', err)
       toast.error(err?.message || 'Failed to place order, please try again')
@@ -349,19 +389,32 @@ export default function Book() {
                       </div>
                     </div>
                   )}
-                  <Input
-                    label="Your Address"
-                    placeholder="House no, street, locality"
-                    value={address}
-                    onChange={e => setAddress(e.target.value)}
-                  />
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Input
+                        label="Your Address"
+                        placeholder="House no, street, locality"
+                        value={address}
+                        onChange={e => setAddress(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={autoDetectLocation}
+                      disabled={detecting}
+                      className="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-orange-500 text-white disabled:opacity-50 mb-[1px]"
+                      title="Auto-detect location"
+                    >
+                      <LocateFixed size={20} className={detecting ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setShowMapPicker(true)}
                     className="flex items-center gap-1.5 text-orange-400 text-xs font-semibold mt-1.5"
                   >
                     <MapPin size={12} />
-                    {lat ? 'Location pinned on map ✓' : 'Pick on map'}
+                    {lat ? 'Location pinned ✓' : 'Or pick on map'}
                   </button>
                 </div>
                 <div>
@@ -418,19 +471,32 @@ export default function Book() {
                   </div>
                 </div>
               )}
-              <Input
-                label="Full Address"
-                placeholder="House no, street, locality"
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-              />
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Input
+                    label="Full Address"
+                    placeholder="House no, street, locality"
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={autoDetectLocation}
+                  disabled={detecting}
+                  className="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl bg-orange-500 text-white disabled:opacity-50 mb-[1px]"
+                  title="Auto-detect location"
+                >
+                  <LocateFixed size={20} className={detecting ? 'animate-spin' : ''} />
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowMapPicker(true)}
                 className="flex items-center gap-1.5 text-orange-400 text-xs font-semibold mt-1.5"
               >
                 <MapPin size={12} />
-                {lat ? 'Location pinned on map ✓' : 'Pick on map'}
+                {lat ? 'Location pinned ✓' : 'Or pick on map'}
               </button>
             </div>
             <div>

@@ -186,7 +186,7 @@ export default function WorkerRegister() {
         photo_url: photoUrl,
         upi_id: upiId.trim() || null,
         address: workerAddress.trim(),
-        city: 'Bobbili',
+        city: localStorage.getItem('gmp_detected_city') || 'Bobbili',
         experience_years: experienceYears,
         verified: false,
         is_active: true,

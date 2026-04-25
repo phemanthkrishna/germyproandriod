@@ -5,3 +5,7 @@ dist
 *.local
 google-services.json
 env
+.vercel
+keystore.properties
+*.keystore
+*.jks

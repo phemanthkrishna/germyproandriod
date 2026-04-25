@@ -38,9 +38,10 @@ interface WorkerPos { lat: number; lng: number }
 export function LiveTrackingMap({ workerId, workerName, customerLat, customerLng }: Props) {
   const { theme } = useTheme()
 
-  const { isLoaded } = useJsApiLoader({
+  // All hooks must be called before any early return
+  const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: MAPS_KEY,
+    googleMapsApiKey: MAPS_KEY || 'x',
   })
 
   const [workerPos, setWorkerPos] = useState<WorkerPos | null>(null)
@@ -48,7 +49,6 @@ export function LiveTrackingMap({ workerId, workerName, customerLat, customerLng
   const [eta, setEta] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const mapRef = useRef<google.maps.Map | null>(null)
-  // Tracks the last worker position key we requested directions for (rounded to ~100 m)
   const lastDirKey = useRef('')
 
   const initialCenter = useRef<WorkerPos>(
@@ -59,21 +59,24 @@ export function LiveTrackingMap({ workerId, workerName, customerLat, customerLng
 
   // Subscribe to worker live location
   useEffect(() => {
-    const locRef = ref(database, `worker_locations/${workerId}`)
-    const unsub = onValue(locRef, snapshot => {
-      const data = snapshot.val()
-      if (data?.lat && data?.lng) setWorkerPos({ lat: data.lat, lng: data.lng })
-    }, error => {
-      console.error('Firebase location read failed:', error.message)
-    })
-    return () => unsub()
+    try {
+      const locRef = ref(database, `worker_locations/${workerId}`)
+      const unsub = onValue(locRef, snapshot => {
+        const data = snapshot.val()
+        if (data?.lat && data?.lng) setWorkerPos({ lat: data.lat, lng: data.lng })
+      }, error => {
+        console.error('Firebase location read failed:', error.message)
+      })
+      return () => unsub()
+    } catch (err) {
+      console.error('Firebase RTDB init failed:', err)
+    }
   }, [workerId])
 
   // Request driving directions whenever worker moves ~100 m or customer changes
   useEffect(() => {
     if (!mapReady || !workerPos || !customerLat || !customerLng || !window.google) return
 
-    // Round to 3 dp ≈ 111 m — only re-request when worker moves meaningfully
     const key = `${workerPos.lat.toFixed(3)},${workerPos.lng.toFixed(3)},${customerLat},${customerLng}`
     if (key === lastDirKey.current) return
     lastDirKey.current = key
@@ -90,7 +93,6 @@ export function LiveTrackingMap({ workerId, workerName, customerLat, customerLng
           setDirections(result)
           const dur = result.routes[0]?.legs[0]?.duration?.text
           setEta(dur ?? null)
-          // Fit map to route bounds
           const bounds = result.routes[0]?.bounds
           if (bounds && mapRef.current) {
             mapRef.current.fitBounds(bounds, 48)
@@ -120,6 +122,36 @@ export function LiveTrackingMap({ workerId, workerName, customerLat, customerLng
     setMapReady(true)
   }, [])
 
+  // Fallback if Maps API key is missing or failed to load
+  if (!MAPS_KEY || loadError) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-2">
+          <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center shrink-0">
+            <Clock size={15} className="text-blue-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-slate-400 text-xs">Estimated arrival</p>
+            {workerPos ? (
+              <p className="text-slate-300 font-semibold text-sm">Pro is on the way</p>
+            ) : (
+              <p className="text-slate-500 text-sm animate-pulse">Waiting for partner…</p>
+            )}
+          </div>
+          {workerPos && (
+            <div className="flex items-center gap-1 bg-green-500/15 border border-green-500/30 rounded-lg px-2.5 py-1 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-green-400 text-xs font-semibold">Live</span>
+            </div>
+          )}
+        </div>
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center" style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p className="text-slate-500 text-sm">Map loading failed — your Pro is still being tracked</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       {/* ETA banner */}
@@ -146,7 +178,6 @@ export function LiveTrackingMap({ workerId, workerName, customerLat, customerLng
       </div>
 
       {/* Map */}
-      {/* Outer clips to 240 px; inner is 264 px so the ~24 px attribution bar is hidden */}
       <div className="rounded-2xl overflow-hidden border border-slate-700" style={{ height: 240 }}>
         {isLoaded ? (
           <GoogleMap

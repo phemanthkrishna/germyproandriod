@@ -4,12 +4,11 @@ import { SERVICES } from '../../constants'
 import { useActiveServices } from '../../hooks/useActiveServices'
 import { BottomNav } from '../../components/BottomNav'
 import { StatusBadge } from '../../components/StatusBadge'
-import { ThemeToggle } from '../../components/ThemeToggle'
 import { useAuth } from '../../context/AuthContext'
 import { useOrders } from '../../hooks/useOrders'
 import { supabase } from '../../lib/supabase'
 import { formatDate } from '../../lib/utils'
-import { Home, List, User, LogOut } from 'lucide-react'
+import { Home, List, User } from 'lucide-react'
 
 const NAV = [
   { to: '/customer', icon: Home, label: 'Home' },
@@ -47,7 +46,7 @@ const BANNERS = [
 interface ReadyAlert { service: string; emoji: string }
 
 export default function CustomerHome() {
-  const { session, signOut } = useAuth()
+  const { session } = useAuth()
   const navigate = useNavigate()
   const { orders } = useOrders({ customer_id: session?.id || '' })
   const { activeServices } = useActiveServices()
@@ -112,17 +111,9 @@ export default function CustomerHome() {
   return (
     <div className="page-content px-5 py-6">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <p className="text-slate-500 text-sm">Hello, {session?.name?.split(' ')[0]}</p>
-          <h1 className="text-2xl font-black font-heading text-slate-50 mt-0.5">What do you need?</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <button onClick={signOut} className="flex items-center gap-1.5 text-red-400 text-xs font-semibold">
-            <LogOut size={14} /> Sign Out
-          </button>
-        </div>
+      <div className="mb-6">
+        <p className="text-slate-500 text-sm">Hello, {session?.name?.split(' ')[0]}</p>
+        <h1 className="text-2xl font-black font-heading text-slate-50 mt-0.5">What do you need?</h1>
       </div>
 
       {/* Partner availability notifications */}

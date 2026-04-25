@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { IndianRupee, Clock, TrendingUp, ChevronRight } from 'lucide-react'
+import { IndianRupee, Clock, TrendingUp, ChevronRight, Eye } from 'lucide-react'
 import { LegalLinks } from '../../components/LegalLinks'
 
 const FEATURES = [
@@ -30,10 +30,10 @@ export default function WorkerLanding() {
         {/* Logo */}
         <div className="relative z-10 mb-6">
           <img
-            src="/logo.png"
+            src="/logoworker.png"
             alt="GetMyPro"
             className="w-28 h-28 object-contain drop-shadow-2xl"
-            onError={e => { e.currentTarget.src = '/logo.svg' }}
+            onError={e => { e.currentTarget.src = '/logoworker.png' }}
           />
         </div>
 
@@ -90,6 +90,13 @@ export default function WorkerLanding() {
           className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] font-bold text-base rounded-2xl py-3.5 px-5 btn-press"
         >
           Already registered? Login
+        </button>
+        <button
+          onClick={() => navigate('/worker/login?demo=1')}
+          className="w-full flex items-center justify-center gap-2 text-[var(--muted)] text-sm py-2 btn-press"
+        >
+          <Eye size={15} />
+          Browse as Demo Worker
         </button>
 
         <LegalLinks />

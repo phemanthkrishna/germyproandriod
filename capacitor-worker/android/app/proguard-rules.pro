@@ -1,3 +1,29 @@
+# ── Capacitor / Ionic ───────────────────────────────────────────────────────
+-keep class com.getcapacitor.** { *; }
+-keep class com.getcapacitor.plugin.** { *; }
+
+# ── Firebase ────────────────────────────────────────────────────────────────
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+
+# ── capawesome Firebase Auth plugin ─────────────────────────────────────────
+-keep class io.capawesome.capacitorjs.plugins.firebase.** { *; }
+
+# Facebook SDK is not included — suppress R8 missing-class errors for it
+-dontwarn com.facebook.**
+-keep class com.facebook.** { *; }
+
+# Firebase Kotlin extensions not on classpath — suppress missing-class errors
+-dontwarn com.google.firebase.ktx.**
+
+# ── capawesome Firebase Messaging plugin ─────────────────────────────────────
+-keep class io.capawesome.capacitorjs.plugins.firebase.messaging.** { *; }
+
+# ── WebView JS bridge ────────────────────────────────────────────────────────
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
 # Add project specific ProGuard rules here.
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.

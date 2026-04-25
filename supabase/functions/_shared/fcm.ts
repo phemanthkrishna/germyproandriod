@@ -52,9 +52,42 @@ export async function sendNotification(
   body: string,
   data: Record<string, string> = {},
   priority: 'high' | 'normal' = 'normal',
+  dataOnly = false,
 ): Promise<void> {
   const sa = JSON.parse(Deno.env.get('FCM_SERVICE_ACCOUNT')!)
   const token = await getAccessToken(sa)
+
+  const isHighPriority = priority === 'high'
+  // job_alerts channel (ringtone) is ONLY for fullscreen data-only messages.
+  // All regular notifications use 'general' regardless of priority.
+  const channelId = 'general'
+
+  const messagePayload: Record<string, any> = {
+    token: fcmToken,
+    android: {
+      priority: isHighPriority ? 'HIGH' : 'NORMAL',
+    },
+    data: {
+      ...data,
+      title,
+      body,
+    },
+  }
+
+  // Data-only mode: used for worker job alerts so the custom native service
+  // (JobNotificationService) handles full-screen intent display.
+  // All other messages include notification payload for standard display.
+  if (!dataOnly) {
+    messagePayload.notification = { title, body }
+    messagePayload.android.notification = {
+      sound:        'default',
+      channel_id:   channelId,
+      default_sound: true,
+      default_vibrate_timings: true,
+      notification_priority: isHighPriority ? 'PRIORITY_HIGH' : 'PRIORITY_DEFAULT',
+      visibility: isHighPriority ? 'PUBLIC' : 'PRIVATE',
+    }
+  }
 
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`,
@@ -64,24 +97,7 @@ export async function sendNotification(
         'Authorization': `Bearer ${token}`,
         'Content-Type':  'application/json',
       },
-      body: JSON.stringify({
-        message: {
-          token: fcmToken,
-          notification: { title, body },
-          android: {
-            priority: priority === 'high' ? 'HIGH' : 'NORMAL',
-            notification: {
-              sound:        'default',
-              channel_id:   priority === 'high' ? 'job_alerts' : 'general',
-              default_sound: true,
-              default_vibrate_timings: true,
-              notification_priority: priority === 'high' ? 'PRIORITY_MAX' : 'PRIORITY_DEFAULT',
-              visibility: priority === 'high' ? 'PUBLIC' : 'PRIVATE',
-            },
-          },
-          data,
-        },
-      }),
+      body: JSON.stringify({ message: messagePayload }),
     },
   )
   if (!res.ok) {

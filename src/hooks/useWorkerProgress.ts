@@ -16,6 +16,7 @@ export type MilestoneStatus = 'completed' | 'active' | 'locked'
 
 export interface WorkerProgress {
   completedJobs: number
+  qualifiedJobs: number           // jobs with rating >= 4 (counts toward milestones)
   currentBadge: Milestone | null
   nextMilestone: Milestone | null
   progressToNext: number          // 0–100 %
@@ -25,13 +26,22 @@ export interface WorkerProgress {
   completedMilestonesData: MilestoneRecord[]
   justUnlocked: Milestone | null
   clearJustUnlocked: () => void
+  progressPaused: boolean         // true if 3+ consecutive bad ratings
+  consecutiveBadRatings: number
+  resumeJobsNeeded: number        // 5-star jobs needed to resume (0 if not paused)
 }
 
 export function useWorkerProgress(workerId: string): WorkerProgress {
   const [completedJobs, setCompletedJobs] = useState(0)
+  const [qualifiedJobs, setQualifiedJobs] = useState(0)
+  const [consecutiveBadRatings, setConsecutiveBadRatings] = useState(0)
+  const [resumeStars, setResumeStars] = useState(0) // 5-star jobs earned toward resume
   const [completedMilestonesData, setCompletedMilestonesData] = useState<MilestoneRecord[]>([])
   const [justUnlocked, setJustUnlocked] = useState<Milestone | null>(null)
   const initialisedRef = useRef(false)
+  // Ref so the realtime callback always sees the latest completed milestones
+  // without relying on localStorage (which can be cleared or differ across devices)
+  const completedMilestonesRef = useRef<MilestoneRecord[]>([])
 
   useEffect(() => {
     if (!workerId) return
@@ -54,8 +64,10 @@ export function useWorkerProgress(workerId: string): WorkerProgress {
             const newCount = await fetchCount()
             const hit = MILESTONES.find((m) => m.job === newCount)
             if (hit) {
-              const key = `badge_shown_${workerId}_${hit.job}`
-              if (!localStorage.getItem(key)) {
+              // Use DB-backed ref instead of localStorage so this works across
+              // devices and survives localStorage clears
+              const alreadyEarned = completedMilestonesRef.current.some(m => m.job === hit.job)
+              if (!alreadyEarned) {
                 setJustUnlocked(hit)
                 saveMilestone(hit)
               }
@@ -73,34 +85,63 @@ export function useWorkerProgress(workerId: string): WorkerProgress {
     if (initialisedRef.current) return
     initialisedRef.current = true
 
-    const [countRes, workerRes] = await Promise.all([
+    const [countRes, qualifiedRes, workerRes, recentRes] = await Promise.all([
       supabase
         .from('orders')
         .select('id', { count: 'exact', head: true })
         .eq('worker_id', workerId)
         .eq('status', 'completed'),
       supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('worker_id', workerId)
+        .eq('status', 'completed')
+        .gte('rating', 4),
+      supabase
         .from('workers')
-        .select('completed_milestones')
+        .select('completed_milestones, consecutive_bad_ratings, resume_stars')
         .eq('id', workerId)
         .single(),
+      // Fetch last 3 rated orders to compute streak
+      supabase
+        .from('orders')
+        .select('rating')
+        .eq('worker_id', workerId)
+        .eq('status', 'completed')
+        .not('rating', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(3),
     ])
 
     const n = countRes.count ?? 0
     setCompletedJobs(n)
+    setQualifiedJobs(qualifiedRes.count ?? 0)
     const records = (workerRes.data?.completed_milestones as MilestoneRecord[]) ?? []
+    completedMilestonesRef.current = records
     setCompletedMilestonesData(records)
+    setConsecutiveBadRatings(workerRes.data?.consecutive_bad_ratings ?? 0)
+    setResumeStars(workerRes.data?.resume_stars ?? 0)
   }
 
   async function fetchCount(): Promise<number> {
-    const { count } = await supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('worker_id', workerId)
-      .eq('status', 'completed')
-    const n = count ?? 0
+    const [totalRes, qualRes] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('worker_id', workerId)
+        .eq('status', 'completed'),
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('worker_id', workerId)
+        .eq('status', 'completed')
+        .gte('rating', 4),
+    ])
+    const n = totalRes.count ?? 0
+    const q = qualRes.count ?? 0
     setCompletedJobs(n)
-    return n
+    setQualifiedJobs(q)
+    return q // milestones use qualified count
   }
 
   async function saveMilestone(milestone: Milestone) {
@@ -117,44 +158,49 @@ export function useWorkerProgress(workerId: string): WorkerProgress {
         .from('workers')
         .update({ completed_milestones: updated })
         .eq('id', workerId)
+      completedMilestonesRef.current = updated
       setCompletedMilestonesData(updated)
     }
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const completedList = MILESTONES.filter((m) => m.job <= completedJobs)
+  // Progress paused if 3+ consecutive bad ratings — need 2 five-star jobs to resume
+  const progressPaused = consecutiveBadRatings >= 3 && resumeStars < 2
+  const resumeJobsNeeded = progressPaused ? Math.max(0, 2 - resumeStars) : 0
+
+  // Milestones count only qualified (4+ rated) jobs
+  const effectiveJobs = qualifiedJobs
+  const completedList = MILESTONES.filter((m) => m.job <= effectiveJobs)
   const currentBadge = completedList[completedList.length - 1] ?? null
-  const nextMilestone = (MILESTONES.find((m) => m.job > completedJobs) ?? null) as Milestone | null
+  const nextMilestone = (MILESTONES.find((m) => m.job > effectiveJobs) ?? null) as Milestone | null
 
   let progressToNext = 100
   if (nextMilestone) {
     const prevJob = currentBadge?.job ?? 0
-    progressToNext = Math.round(
-      ((completedJobs - prevJob) / (nextMilestone.job - prevJob)) * 100
+    progressToNext = progressPaused ? 0 : Math.round(
+      ((effectiveJobs - prevJob) / (nextMilestone.job - prevJob)) * 100
     )
   }
 
   const earnedBonuses = completedList.reduce((s, m) => s + m.bonus, 0)
-  const pendingBonuses = MILESTONES.filter((m) => m.job > completedJobs).reduce(
+  const pendingBonuses = MILESTONES.filter((m) => m.job > effectiveJobs).reduce(
     (s, m) => s + m.bonus,
     0
   )
 
   const milestoneStatuses: MilestoneStatus[] = MILESTONES.map((m) => {
-    if (m.job <= completedJobs) return 'completed'
+    if (m.job <= effectiveJobs) return 'completed'
     if (m === nextMilestone)    return 'active'
     return 'locked'
   })
 
   function clearJustUnlocked() {
-    if (justUnlocked) {
-      localStorage.setItem(`badge_shown_${workerId}_${justUnlocked.job}`, '1')
-    }
     setJustUnlocked(null)
   }
 
   return {
     completedJobs,
+    qualifiedJobs,
     currentBadge,
     nextMilestone,
     progressToNext,
@@ -164,5 +210,8 @@ export function useWorkerProgress(workerId: string): WorkerProgress {
     completedMilestonesData,
     justUnlocked,
     clearJustUnlocked,
+    progressPaused,
+    consecutiveBadRatings,
+    resumeJobsNeeded,
   }
 }

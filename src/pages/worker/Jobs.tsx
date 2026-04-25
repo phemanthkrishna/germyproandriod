@@ -6,7 +6,6 @@ import { useOrders } from '../../hooks/useOrders'
 import { supabase } from '../../lib/supabase'
 import { StatusBadge } from '../../components/StatusBadge'
 import { BottomNav } from '../../components/BottomNav'
-import { ThemeToggle } from '../../components/ThemeToggle'
 import { BadgeUnlockOverlay } from '../../components/BadgeUnlockOverlay'
 import { useWorkerProgress } from '../../hooks/useWorkerProgress'
 import { formatDate, formatCurrency } from '../../lib/utils'
@@ -29,9 +28,10 @@ export default function WorkerJobs() {
   const { orders: myJobs } = useOrders({ worker_id: session?.id || '' })
   const activeJobs = myJobs.filter(o => !['completed', 'cancelled'].includes(o.status))
   const isBusyOnJob = activeJobs.some(o => o.worker_id === session?.id && !['completed', 'cancelled'].includes(o.status))
+  const VISIT_CHARGE = 100
   const totalEarned = myJobs
     .filter(o => o.status === 'completed')
-    .reduce((sum, o) => sum + (o.quote_labour || 0), 0)
+    .reduce((sum, o) => sum + (o.quote_labour || 0) + VISIT_CHARGE, 0)
 
   const [available, setAvailable] = useState<typeof myJobs>([])
 
@@ -52,32 +52,51 @@ export default function WorkerJobs() {
   }, [])
 
   useEffect(() => {
+    if (!session?.id) return
+
+    // Use a ref-like local variable so realtime callbacks always have the latest city
+    let currentCity: string | null = null
+
+    // Fetch worker info first, then available jobs with the correct city
     supabase
       .from('workers')
       .select('*')
-      .eq('id', session?.id)
+      .eq('id', session.id)
       .single()
-      .then(({ data }) => setWorkerInfo(data))
-
-    fetchAvailable()
-
-    const channel = supabase
-      .channel('available-jobs')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => fetchAvailable())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => fetchAvailable())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workers' }, () => fetchAvailable())
-      .subscribe(status => {
-        // Reconnect if the channel drops
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          setTimeout(() => fetchAvailable(), 3000)
+      .then(({ data }) => {
+        if (data) {
+          setWorkerInfo(data)
+          currentCity = data.city ?? null
+          fetchAvailableForCity(currentCity)
         }
       })
-    return () => { supabase.removeChannel(channel) }
-  }, [])
 
-  async function fetchAvailable() {
-    // Fetch all unassigned booked orders first, filtered to worker's city
-    const workerCity = workerInfo?.city || null
+    const channel = supabase
+      .channel('worker-jobs-' + session.id)
+      // Watch this worker's own record — keeps online/offline button in sync
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'workers',
+        filter: `id=eq.${session.id}`,
+      }, (payload) => {
+        const updated = payload.new as typeof workerInfo
+        setWorkerInfo(updated)
+        currentCity = updated?.city ?? null
+      })
+      // Watch orders for available job changes
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' },
+        () => fetchAvailableForCity(currentCity))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' },
+        () => fetchAvailableForCity(currentCity))
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setTimeout(() => fetchAvailableForCity(currentCity), 3000)
+        }
+      })
+
+    return () => { supabase.removeChannel(channel) }
+  }, [session?.id])
+
+  async function fetchAvailableForCity(workerCity: string | null) {
     let query = supabase
       .from('orders')
       .select('*')
@@ -191,7 +210,6 @@ export default function WorkerJobs() {
             <h1 className="text-2xl font-black font-heading text-slate-50 truncate">{session?.name?.split(' ')[0]}</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <ThemeToggle />
             {workerInfo && (
               <button
                 onClick={toggleOnline}

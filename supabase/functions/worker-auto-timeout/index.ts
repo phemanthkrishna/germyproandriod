@@ -1,6 +1,6 @@
 // Runs every 30 minutes via pg_cron.
 // Checks:
-//   A. Online workers inactive 4+ hours (no active job) → set offline + notify
+//   A. Online workers inactive 2+ hours (no active job) → set offline + notify
 //   B. Offline workers 2+ days → send warning notification
 //   C. Offline workers 3+ days → pause account + notify (contact admin to reactivate)
 
@@ -19,19 +19,19 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   const now = Date.now()
-  const fourHoursAgo  = new Date(now - 4  * 60 * 60 * 1000).toISOString()
+  const twoHoursAgo   = new Date(now - 2  * 60 * 60 * 1000).toISOString()
   const twoDaysAgo    = new Date(now - 2  * 24 * 60 * 60 * 1000).toISOString()
   const threeDaysAgo  = new Date(now - 3  * 24 * 60 * 60 * 1000).toISOString()
 
   try {
 
-    // ── A: Online but inactive 4+ hours ─────────────────────────
+    // ── A: Online but inactive 2+ hours ─────────────────────────
     const { data: stale } = await supabase
       .from('workers')
       .select('id, fcm_token')
       .eq('is_online', true)
       .eq('is_active', true)
-      .lt('last_active_at', fourHoursAgo)
+      .lt('last_active_at', twoHoursAgo)
 
     for (const w of stale ?? []) {
       // Skip if worker has an active job — job resets the timer
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       if (w.fcm_token) await sendNotification(
         w.fcm_token,
         "You've been set Offline 😴",
-        'No activity for 4 hours — open the app to go back online.',
+        'No activity for 2 hours — open the app to go back online.',
         { screen: 'jobs' },
         'normal',
       )

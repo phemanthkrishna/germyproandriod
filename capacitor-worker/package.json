@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "devDependencies": {
-    "@capacitor/cli": "^8.3.0"
+    "@capacitor/cli": "^8.3.0",
+    "jimp": "^1.6.1"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.2.0",

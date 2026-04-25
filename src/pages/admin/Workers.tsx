@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useCity } from '../../context/CityContext'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { ChevronDown, ChevronUp } from 'lucide-react'
@@ -9,10 +10,13 @@ import { MILESTONES } from '../../hooks/useWorkerProgress'
 import type { Worker } from '../../types'
 
 export default function AdminWorkers() {
+  const { selectedCity } = useCity()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [saving, setSaving] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [jobCounts, setJobCounts] = useState<Record<string, number>>({})
+  const [earnings, setEarnings] = useState<Record<string, number>>({})
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     fetchWorkers()
@@ -22,26 +26,37 @@ export default function AdminWorkers() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workers' }, () => fetchWorkers())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [selectedCity])
 
   async function fetchWorkers() {
-    const { data, error } = await supabase.from('workers').select('*').order('created_at', { ascending: false })
+    let query = supabase.from('workers').select('*').order('created_at', { ascending: false })
+    if (selectedCity) query = query.eq('city', selectedCity)
+    const { data, error } = await query
     if (error) console.error('Failed to load workers:', error.message)
     const list = (data as Worker[]) || []
     setWorkers(list)
 
     if (list.length > 0) {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('worker_id')
-        .in('worker_id', list.map(w => w.id))
-        .eq('status', 'completed')
+      const ids = list.map(w => w.id)
+      const [{ data: orders }, { data: logs }] = await Promise.all([
+        supabase.from('orders').select('worker_id').in('worker_id', ids).eq('status', 'completed'),
+        supabase.from('payout_logs').select('payee_id,amount').in('payee_id', ids).eq('payee_type', 'worker'),
+      ])
       const counts: Record<string, number> = {}
       for (const o of (orders || [])) {
         if (o.worker_id) counts[o.worker_id] = (counts[o.worker_id] || 0) + 1
       }
       setJobCounts(counts)
+      const earned: Record<string, number> = {}
+      for (const l of (logs || [])) {
+        if (l.payee_id) earned[l.payee_id] = (earned[l.payee_id] || 0) + (l.amount || 0)
+      }
+      setEarnings(earned)
     }
+  }
+
+  function waitingDays(createdAt: string) {
+    return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400_000)
   }
 
   async function verify(w: Worker) {
@@ -85,17 +100,53 @@ export default function AdminWorkers() {
     setSaving(null)
   }
 
+  // Sort: unverified+active first (oldest waiting at top), then verified, then inactive
+  const q = search.toLowerCase().trim()
+  const sorted = [...workers]
+    .filter(w => !q || [w.name, w.phone, w.service, w.city || ''].some(v => v.toLowerCase().includes(q)))
+    .sort((a, b) => {
+      const aPending = !a.verified && a.is_active !== false
+      const bPending = !b.verified && b.is_active !== false
+      if (aPending && !bPending) return -1
+      if (!aPending && bPending) return 1
+      if (aPending && bPending) return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+
+  const pendingCount = workers.filter(w => !w.verified && w.is_active !== false).length
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-black font-heading text-slate-50 mb-5">Workers</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black font-heading text-slate-50">
+          {selectedCity ? `${selectedCity} — Workers` : 'All Workers'}
+        </h1>
+        {pendingCount > 0 && (
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400">
+            {pendingCount} pending verification
+          </span>
+        )}
+      </div>
 
-      {workers.length === 0 && (
-        <div className="text-center py-10 text-slate-500">No workers registered yet</div>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search by name, phone, service, city…"
+        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-50 placeholder-slate-600 text-sm outline-none focus:border-blue-500 mb-4"
+      />
+
+      {sorted.length === 0 && (
+        <div className="text-center py-10 text-slate-500">
+          {search ? 'No workers match your search' : `No workers${selectedCity ? ` in ${selectedCity}` : ''} yet`}
+        </div>
       )}
 
       <div className="flex flex-col gap-3">
-        {workers.map(w => (
-          <Card key={w.id}>
+        {sorted.map(w => {
+          const isPending = !w.verified && w.is_active !== false
+          const days = isPending ? waitingDays(w.created_at) : 0
+          return (
+          <Card key={w.id} className={isPending && days >= 2 ? 'border-amber-500/30' : ''}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-10 h-10 bg-slate-700 rounded-full overflow-hidden flex items-center justify-center font-bold text-slate-50 shrink-0">
@@ -105,9 +156,16 @@ export default function AdminWorkers() {
                   }
                 </div>
                 <div className="min-w-0">
-                  <p className="font-bold text-slate-50 truncate">{w.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-slate-50 truncate">{w.name}</p>
+                    {isPending && days > 0 && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${days >= 3 ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                        waiting {days}d
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-slate-500 text-xs">{w.service} · {w.phone}</p>
+                    <p className="text-slate-500 text-xs">{w.service} · {w.phone}{w.city ? ` · ${w.city}` : ''}</p>
                     {(() => {
                       const badge = [...MILESTONES].filter(m => m.job <= (jobCounts[w.id] ?? 0)).pop()
                       if (!badge) return null
@@ -118,6 +176,12 @@ export default function AdminWorkers() {
                       )
                     })()}
                   </div>
+                  {(jobCounts[w.id] || earnings[w.id]) ? (
+                    <div className="flex gap-3 mt-0.5">
+                      {jobCounts[w.id] > 0 && <span className="text-slate-600 text-[10px]">{jobCounts[w.id]} jobs</span>}
+                      {earnings[w.id] > 0 && <span className="text-green-600 text-[10px]">₹{earnings[w.id].toLocaleString('en-IN')} paid out</span>}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -262,7 +326,8 @@ export default function AdminWorkers() {
               </div>
             )}
           </Card>
-        ))}
+          )
+        })}
       </div>
 
     </div>

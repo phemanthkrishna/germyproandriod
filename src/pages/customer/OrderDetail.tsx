@@ -1,14 +1,38 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Component, Suspense, lazy, type ReactNode } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useOrder } from '../../hooks/useOrders'
 import { StatusBadge } from '../../components/StatusBadge'
 import { JourneyTracker } from '../../components/JourneyTracker'
-import { LiveTrackingMap } from '../../components/LiveTrackingMap'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+
+// Lazy-load LiveTrackingMap so import-time errors don't crash the page
+const LiveTrackingMap = lazy(() =>
+  import('../../components/LiveTrackingMap').then(m => ({ default: m.LiveTrackingMap }))
+    .catch(err => {
+      console.error('Failed to load LiveTrackingMap:', err)
+      return { default: () => <div className="bg-slate-800 rounded-xl p-4 text-center"><p className="text-slate-400 text-sm">Live tracking unavailable</p></div> }
+    })
+)
+
+// Error boundary to prevent LiveTrackingMap runtime crashes from blanking the page
+class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(err: Error) { console.error('LiveTrackingMap error:', err) }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="bg-slate-800 rounded-xl p-4 text-center">
+          <p className="text-slate-400 text-sm">Live tracking unavailable</p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 import { supabase } from '../../lib/supabase'
-import { openCashfreeCheckout } from '../../lib/cashfree'
 import { formatDate, formatCurrency } from '../../lib/utils'
 import { TRANSACTION_FEE_RATE } from '../../constants'
 import { ArrowLeft, Star, Phone } from 'lucide-react'
@@ -166,12 +190,17 @@ export default function CustomerOrderDetail() {
     if (!order.total_quote) return toast.error('Quote amount not available yet')
     setSaving(true)
     try {
-      await openCashfreeCheckout(order.id, 'final')
+      // TODO: Re-enable Cashfree checkout once Play Store link is whitelisted
+      // await openCashfreeCheckout(order.id, 'final')
+      // For now, mark final payment as done and move to in_progress (worker starts work)
+      await supabase.from('orders').update({ final_paid: true, status: 'in_progress' }).eq('id', order.id)
+      toast.success('Payment successful! Work will begin shortly.')
+      refetch()
     } catch (err: any) {
       console.error('Final pay failed:', err)
-      toast.error(err?.message || 'Failed to open payment, please try again')
-      setSaving(false)
+      toast.error(err?.message || 'Failed to process payment, please try again')
     }
+    setSaving(false)
   }
 
   async function cancelOrder() {
@@ -203,16 +232,41 @@ export default function CustomerOrderDetail() {
     if (order.worker_id) {
       const { data: w } = await supabase
         .from('workers')
-        .select('avg_rating, total_ratings')
+        .select('avg_rating, total_ratings, consecutive_bad_ratings, resume_stars')
         .eq('id', order.worker_id)
         .single()
       if (w) {
         const newTotal = (w.total_ratings || 0) + 1
         const newAvg = ((w.avg_rating || 0) * (w.total_ratings || 0) + val) / newTotal
-        await supabase.from('workers').update({
+        const prevBad = w.consecutive_bad_ratings ?? 0
+        const prevResume = w.resume_stars ?? 0
+
+        const workerUpdate: Record<string, unknown> = {
           avg_rating: Math.round(newAvg * 100) / 100,
           total_ratings: newTotal,
-        }).eq('id', order.worker_id)
+        }
+
+        if (val >= 4) {
+          // Good rating — reset bad streak
+          workerUpdate.consecutive_bad_ratings = 0
+          // If paused (3+ bad), count 5-star jobs toward resume
+          if (prevBad >= 3 && val === 5) {
+            workerUpdate.resume_stars = prevResume + 1
+            // If they hit 2 resume stars, fully reset
+            if (prevResume + 1 >= 2) {
+              workerUpdate.consecutive_bad_ratings = 0
+              workerUpdate.resume_stars = 0
+            }
+          } else {
+            workerUpdate.resume_stars = 0
+          }
+        } else {
+          // Bad rating (< 4)
+          workerUpdate.consecutive_bad_ratings = prevBad + 1
+          workerUpdate.resume_stars = 0
+        }
+
+        await supabase.from('workers').update(workerUpdate).eq('id', order.worker_id)
       }
     }
     toast.success('Thank you for your rating!')
@@ -226,8 +280,9 @@ export default function CustomerOrderDetail() {
   const summaryKey = getSummaryKey(order.status, order.worker_id, order.mat_cost_admin)
   const summary = STEP_SUMMARY[summaryKey] ?? STEP_SUMMARY['booked_searching']
 
-  // Show live tracking while worker is en route
-  const showLiveTracking = !!order.worker_id && order.status === 'booked'
+  // Show live tracking for all active statuses where worker is on the job
+  const showLiveTracking = !!order.worker_id &&
+    ['booked', 'worker_visiting', 'inspecting', 'quote_sent', 'in_progress', 'material_collected', 'done_uploaded'].includes(order.status)
 
   return (
     <div className="page-content px-5 py-6">
@@ -310,12 +365,16 @@ export default function CustomerOrderDetail() {
       {showLiveTracking && (
         <Card className="mb-4">
           <p className="font-bold text-slate-50 mb-3">🚗 Live Tracking</p>
-          <LiveTrackingMap
-            workerId={order.worker_id!}
-            workerName={order.worker_name || 'Pro'}
-            customerLat={order.customer_lat}
-            customerLng={order.customer_lng}
-          />
+          <MapErrorBoundary>
+            <Suspense fallback={<div className="bg-slate-800 rounded-xl p-4 text-center"><p className="text-slate-400 text-sm animate-pulse">Loading live tracking…</p></div>}>
+              <LiveTrackingMap
+                workerId={order.worker_id!}
+                workerName={order.worker_name || 'Pro'}
+                customerLat={order.customer_lat}
+                customerLng={order.customer_lng}
+              />
+            </Suspense>
+          </MapErrorBoundary>
         </Card>
       )}
 

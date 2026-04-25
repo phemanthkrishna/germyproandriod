@@ -1,13 +1,15 @@
 import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  PhoneAuthProvider,
-  signInWithCredential,
   type ConfirmationResult,
 } from 'firebase/auth'
 import { auth } from './firebase'
 
 export type { ConfirmationResult, RecaptchaVerifier }
+
+// ── Play Store review test credentials ──────────────────────────────────────
+export const TEST_PHONE = '0000000000'
+export const TEST_OTP   = '123456'
 
 // Stores verification state on native platform between sendOtp and verifyOtp calls
 let nativeVerificationId: string | null = null
@@ -19,7 +21,6 @@ function isNativePlatform(): boolean {
 }
 
 export function createRecaptchaVerifier(containerId: string): RecaptchaVerifier | null {
-  // Native Android/iOS uses the Firebase SDK directly — no reCAPTCHA needed
   if (isNativePlatform()) return null
   const el = document.getElementById(containerId)
   if (!el) throw new Error(`reCAPTCHA container #${containerId} not found`)
@@ -68,15 +69,48 @@ export async function sendOtp(
   phone: string,
   verifier: RecaptchaVerifier | null
 ): Promise<ConfirmationResult | null> {
+  if (phone === TEST_PHONE) return null
+
   if (isNativePlatform()) {
     const plugin = getPlugin()
     nativeVerificationId = await new Promise<string>((resolve, reject) => {
-      // Register listeners and kick off the OTP request simultaneously
-      plugin.addListener('phoneCodeSent', (e: any) => resolve(e.verificationId))
-      plugin.addListener('phoneVerificationFailed', (e: any) =>
-        reject(new Error(e.message || 'Phone verification failed'))
+      let codeSentHandle: any
+      let failedHandle: any
+      const cleanup = () => {
+        try { codeSentHandle?.remove() } catch {}
+        try { failedHandle?.remove() } catch {}
+      }
+
+      // addListener may return a handle directly OR a Promise<handle> depending
+      // on the plugin version — handle both cases safely
+      const assignHandle = (result: any, setter: (h: any) => void) => {
+        if (result && typeof result.then === 'function') {
+          result.then((h: any) => setter(h))
+        } else {
+          setter(result)
+        }
+      }
+
+      assignHandle(
+        plugin.addListener('phoneCodeSent', (e: any) => {
+          cleanup()
+          resolve(e.verificationId)
+        }),
+        (h) => { codeSentHandle = h }
       )
-      plugin.signInWithPhoneNumber({ phoneNumber: `+91${phone}` }).catch(reject)
+
+      assignHandle(
+        plugin.addListener('phoneVerificationFailed', (e: any) => {
+          cleanup()
+          reject(new Error(e.message || 'Phone verification failed'))
+        }),
+        (h) => { failedHandle = h }
+      )
+
+      plugin.signInWithPhoneNumber({ phoneNumber: `+91${phone}` }).catch((err: any) => {
+        cleanup()
+        reject(err)
+      })
     })
     nativePhone = phone
     return null
@@ -86,12 +120,17 @@ export async function sendOtp(
 
 export async function verifyOtp(
   confirmationResult: ConfirmationResult | null,
-  otp: string
+  otp: string,
+  phone?: string
 ): Promise<void> {
+  if (phone === TEST_PHONE) {
+    if (otp !== TEST_OTP) throw { code: 'auth/invalid-verification-code' }
+    return
+  }
+
   if (isNativePlatform()) {
     if (!nativeVerificationId) throw new Error('No verification session. Please request OTP again.')
     const plugin = getPlugin()
-    // Call signInWithPhoneNumber again with verificationId + code to confirm
     await plugin.signInWithPhoneNumber({
       phoneNumber: `+91${nativePhone}`,
       verificationId: nativeVerificationId,

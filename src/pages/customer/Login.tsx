@@ -10,6 +10,7 @@ import {
   sendOtp,
   verifyOtp,
   firebaseAuthMessage,
+  TEST_PHONE,
   type ConfirmationResult,
   type RecaptchaVerifier,
 } from '../../lib/firebaseOtp'
@@ -50,8 +51,8 @@ export default function CustomerLogin() {
 
   async function handleSendOtp() {
     if (!name.trim()) return toast.error('Enter your name')
-    if (phone.length !== 10 || !/^[6-9]/.test(phone)) return toast.error('Enter a valid 10-digit Indian mobile number')
-    if (!verifierRef.current && !(window as any)?.Capacitor?.isNativePlatform?.()) return toast.error('reCAPTCHA not ready, refresh the page')
+    if (phone !== TEST_PHONE && (phone.length !== 10 || !/^[6-9]/.test(phone))) return toast.error('Enter a valid 10-digit Indian mobile number')
+    if (phone !== TEST_PHONE && !verifierRef.current && !(window as any)?.Capacitor?.isNativePlatform?.()) return toast.error('reCAPTCHA not ready, refresh the page')
     setLoading(true)
     try {
       const result = await sendOtp(phone, verifierRef.current)
@@ -71,18 +72,31 @@ export default function CustomerLogin() {
     if (!confirmationResult && !isNative) return toast.error('Please request OTP first')
     setLoading(true)
     try {
-      await verifyOtp(confirmationResult, otp)
+      await verifyOtp(confirmationResult, otp, phone)
 
       const { data: existing, error: fetchError } = await supabase
         .from('profiles')
-        .select('id, role')
+        .select('id, role, name')
         .eq('phone', phone)
         .maybeSingle()
       if (fetchError) throw fetchError
 
       let profileId: string
+      let displayName = name
+
       if (existing) {
+        // Block workers / store users from logging in via the customer app —
+        // a role mismatch would be silently corrected to 'customer' in the
+        // session, then the background verify would detect the DB role and
+        // sign them out on the very next launch.
+        if (existing.role && existing.role !== 'customer') {
+          toast.error('This number is registered as a worker/store. Please use the correct app.')
+          setLoading(false)
+          return
+        }
         profileId = existing.id
+        // Prefer the name already on file so we don't overwrite it
+        displayName = existing.name || name
       } else {
         const { data: newProfile, error } = await supabase
           .from('profiles')
@@ -93,7 +107,7 @@ export default function CustomerLogin() {
         profileId = newProfile.id
       }
 
-      signIn({ id: profileId, name, phone, role: 'customer' })
+      signIn({ id: profileId, name: displayName, phone, role: 'customer' })
       navigate('/customer')
     } catch (e: unknown) {
       toast.error(firebaseAuthMessage(e))

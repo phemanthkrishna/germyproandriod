@@ -6,7 +6,28 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(find 'e:/Getmypro/Getmypromvp test/Getmypromvp test/packages' -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx \\\\\\))"
+      "Bash(find 'e:/Getmypro/Getmypromvp test/Getmypromvp test/packages' -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx \\\\\\))",
+      "Bash(npx cap:*)",
+      "Bash(npm install:*)",
+      "Bash(npx supabase:*)",
+      "Bash(keytool -list -v -keystore \"%USERPROFILE%\\\\.android\\\\debug.keystore\" -alias androiddebugkey -storepass android -keypass android)",
+      "Bash(keytool -list -v -keystore \"C:/Users/Admin/.android/debug.keystore\" -alias androiddebugkey -storepass android -keypass android)",
+      "Bash(find \"/e/Getmypro/Getmypromvp testV2/Getmypromvp test/supabase/migrations\" -name \"*.sql\" -exec grep -l \"CREATE OR REPLACE FUNCTION\\\\|CREATE FUNCTION\" {} \\\\;)",
+      "Bash(keytool -genkeypair -v -keystore 'e:/Getmypro/Getmypromvp testV2/Getmypromvp test/capacitor-customer/android/app/getmypro-release.keystore' -alias getmypro-customer -keyalg RSA -keysize 2048 -validity 10000 -storepass Getmypro@keystore -keypass Getmypro@keystore -dname 'CN=Hemanthkrishna Pedapolu, OU=Getmypro, O=Getmypro, L=Visakhapatnam, ST=Andhra Pradesh, C=IN')",
+      "WebFetch(domain:www.getmypro.in)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(sed -i \"s/import { ClipboardList, Users, DollarSign, Package, TrendingUp, Store } from 'lucide-react'/import { ClipboardList, Users, DollarSign, Package, TrendingUp, Store, MapPin } from 'lucide-react'/\" \"e:/Getmypro/Getmypromvp testV2/Getmypromvp test/src/pages/admin/Materials.tsx\")",
+      "Bash(sed -i \"s/import { ClipboardList, Users, DollarSign, ChevronDown, ChevronUp, Package, Store } from 'lucide-react'/import { ClipboardList, Users, DollarSign, ChevronDown, ChevronUp, Package, Store, MapPin } from 'lucide-react'/\" \"e:/Getmypro/Getmypromvp testV2/Getmypromvp test/src/pages/admin/Workers.tsx\")",
+      "Bash(identify \"e:/Getmypro/Getmypromvp testV2/Getmypromvp test/public/logo.png\")",
+      "Bash(python3 -c ':*)",
+      "Bash(python3 -m pip install Pillow -q)",
+      "Bash(pip install:*)",
+      "Bash(python3 -c \"from PIL import Image; print\\('ok'\\)\")",
+      "Bash(where node:*)",
+      "Bash(node -e \"console.log\\('node ok'\\)\")",
+      "Bash(npm list:*)",
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")",
+      "Bash(vercel --prod)"
     ]
   }
 }

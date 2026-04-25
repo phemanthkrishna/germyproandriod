@@ -92,20 +92,25 @@ export interface Order {
   mat_store_contact?: string
   mat_collection_otp?: string
   mat_collected?: boolean
+  mat_cost_store?: number
   labour_approval_pending?: boolean
   labour_pending_amount?: number
   declined_worker_ids?: string[]
   preferred_worker_id?: string | null
   preferred_worker_code?: string | null
+  mat_list_photo_url?: string
   created_at: string
   updated_at: string
 }
+
+export type AdminRole = 'admin' | 'manager' | 'accountant'
 
 export interface StoredSession {
   id: string
   name: string
   phone: string
   role: Role
+  adminRole?: AdminRole  // only set when role === 'admin'
 }
 
 export interface BonusClaim {
@@ -119,6 +124,21 @@ export interface BonusClaim {
   status: 'pending' | 'paid'
   created_at: string
   paid_at?: string
+}
+
+export interface PayoutLog {
+  id: string
+  order_id?: string   // TEXT (matches orders.id)
+  payee_type: 'worker' | 'store' | 'bonus'
+  payee_id?: string   // TEXT
+  payee_name: string
+  payee_upi?: string
+  amount: number
+  payment_ref?: string
+  note?: string
+  marked_by?: string
+  paid_at: string
+  created_at: string
 }
 
 export interface StoreOrder {
@@ -140,5 +160,6 @@ export interface StoreOrder {
   mat_collected: boolean
   quote_labour?: number
   total_quote?: number
+  mat_list_photo_url?: string
   created_at: string
 }

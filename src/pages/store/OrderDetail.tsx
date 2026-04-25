@@ -164,6 +164,19 @@ export default function StoreOrderDetail() {
         {isQuoteSent && (
           <>
             <p className="text-orange-400 text-lg font-bold mb-4 text-center">Enter your price for each item below</p>
+
+            {/* Show worker's handwritten list photo if uploaded */}
+            {order.mat_list_photo_url && (
+              <div className="mb-4 bg-slate-900 border border-slate-700 rounded-2xl p-3">
+                <p className="text-slate-400 text-xs font-semibold mb-2">📋 Worker's written list</p>
+                <img
+                  src={order.mat_list_photo_url}
+                  alt="Materials list"
+                  className="w-full rounded-xl object-contain max-h-64"
+                />
+              </div>
+            )}
+
             {order.quote_materials?.map((mat, i) => (
               <div key={i} className="bg-slate-900 border border-slate-700 rounded-2xl p-4 mb-3">
                 <p className="font-bold text-slate-50">{mat.name}</p>

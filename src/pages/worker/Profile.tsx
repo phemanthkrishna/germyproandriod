@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { toast } from 'sonner'
 import { BottomNav } from '../../components/BottomNav'
-import { Briefcase, DollarSign, User, LogOut, Edit2, Check, X, History, Trophy, Copy, Share2 } from 'lucide-react'
+import { Briefcase, DollarSign, User, LogOut, Edit2, Check, X, History, Trophy, Copy, Share2, Phone, MessageCircle } from 'lucide-react'
 import { LegalLinks } from '../../components/LegalLinks'
 import { SERVICES } from '../../constants'
 import { useWorkerProgress, MILESTONES } from '../../hooks/useWorkerProgress'
@@ -37,7 +37,12 @@ export default function WorkerProfile() {
   async function toggleOnline() {
     if (!worker) return
     const newVal = !worker.is_online
-    const { error } = await supabase.from('workers').update({ is_online: newVal }).eq('id', worker.id)
+    const update: Record<string, unknown> = {
+      is_online: newVal,
+      last_active_at: new Date().toISOString(),
+      went_offline_at: newVal ? null : new Date().toISOString(),
+    }
+    const { error } = await supabase.from('workers').update(update).eq('id', worker.id)
     if (error) { toast.error(error.message); return }
     setWorker(w => w ? { ...w, is_online: newVal } : w)
     toast.success(newVal ? 'You are now Online' : 'You are now Offline')
@@ -298,6 +303,27 @@ export default function WorkerProfile() {
           Your account is under review. Admin will verify your Aadhaar and activate your account.
         </div>
       )}
+
+      {/* Support */}
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-4">
+        <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-3">Support</p>
+        <div className="flex gap-3">
+          <a
+            href="tel:+918985614758"
+            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white font-bold text-sm rounded-xl py-3"
+          >
+            <Phone size={16} /> Call Us
+          </a>
+          <a
+            href="https://wa.me/918985614758"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white font-bold text-sm rounded-xl py-3"
+          >
+            <MessageCircle size={16} /> WhatsApp
+          </a>
+        </div>
+      </div>
 
       {/* Sign out */}
       <button

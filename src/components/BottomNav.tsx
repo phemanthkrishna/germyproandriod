@@ -20,7 +20,7 @@ export function BottomNav({ items }: { items: NavItem[] }) {
           to={to}
           end
           className={({ isActive }) =>
-            `flex-shrink-0 min-w-[64px] flex flex-col items-center justify-center py-3 gap-1 transition-colors ${
+            `flex-1 min-w-0 flex flex-col items-center justify-center py-3 gap-1 transition-colors ${
               isActive ? '' : 'text-slate-500'
             }`
           }

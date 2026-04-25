@@ -111,6 +111,9 @@ export function JobCallScreen({ workerId, workerName, workerPhone }: Props) {
       if ('vibrate' in navigator) navigator.vibrate([400, 150, 400, 150, 400])
       addToQueue()
     } else if (dist <= RADIUS_5KM) {
+      // Clear any existing timer for this order before creating a new one
+      const existing = pendingTimers.current.get(order.id)
+      if (existing) { clearTimeout(existing); pendingTimers.current.delete(order.id) }
       const timer = setTimeout(async () => {
         pendingTimers.current.delete(order.id)
         const { data } = await supabase.from('orders').select('worker_id').eq('id', order.id).single()
