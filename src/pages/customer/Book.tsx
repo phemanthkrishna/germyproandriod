@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { SERVICES, BOOKING_FEE, VISITING_CHARGE, PLATFORM_FEE, TRANSACTION_FEE_RATE, PACKAGE_SERVICES } from '../../constants'
+import { SERVICES, BOOKING_FEE, VISITING_CHARGE, PLATFORM_FEE, TRANSACTION_FEE_RATE, PACKAGE_SERVICES, AC_ADVANCE, AC_PLATFORM_FEE, AC_BOOKING_BASE } from '../../constants'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Card } from '../../components/ui/Card'
@@ -178,6 +178,14 @@ export default function Book() {
     )
   }
 
+  function getEffectivePackagePrice(pkg: AcServicePackage): number {
+    if (!pkg.discount_pct || pkg.discount_pct <= 0) return pkg.price
+    const now = new Date()
+    if (pkg.discount_start && new Date(pkg.discount_start) > now) return pkg.price
+    if (pkg.discount_end   && new Date(pkg.discount_end)   < now) return pkg.price
+    return Math.round(pkg.price * (1 - pkg.discount_pct / 100))
+  }
+
   async function handleBook() {
     if (!selectedService) return toast.error('Select a service')
     if (!address.trim()) return toast.error('Enter your address')
@@ -214,13 +222,23 @@ export default function Book() {
 
       const detectedCity = localStorage.getItem('gmp_detected_city') || null
 
-      // Apply promo discount to booking fee
-      let effectiveBookingAmt = BOOKING_FEE
-      if (promoId && promoDiscount > 0) {
-        const discount = promoType === 'percent'
-          ? Math.round(BOOKING_FEE * promoDiscount / 100)
-          : promoDiscount
-        effectiveBookingAmt = Math.max(0, BOOKING_FEE - discount)
+      let effectiveBookingAmt: number
+      let acEffectivePrice: number | null = null
+
+      if (isPackageService && selectedPackage) {
+        // AC Service: booking = ₹25 platform + ₹100 advance + 2.5% processing (fixed, no promo on booking)
+        effectiveBookingAmt = Math.round(AC_BOOKING_BASE * (1 + TRANSACTION_FEE_RATE) * 100) / 100
+        // Effective package price after any active discount
+        acEffectivePrice = getEffectivePackagePrice(selectedPackage)
+      } else {
+        // Regular service: apply promo to booking fee
+        effectiveBookingAmt = BOOKING_FEE
+        if (promoId && promoDiscount > 0) {
+          const discount = promoType === 'percent'
+            ? Math.round(BOOKING_FEE * promoDiscount / 100)
+            : promoDiscount
+          effectiveBookingAmt = Math.max(0, BOOKING_FEE - discount)
+        }
       }
 
       const { error } = await supabase.from('orders').insert({
@@ -251,7 +269,7 @@ export default function Book() {
         ...(isPackageService && selectedPackage ? {
           ac_package_id: selectedPackage.id,
           ac_package_name: selectedPackage.name,
-          ac_package_price: selectedPackage.price,
+          ac_package_price: acEffectivePrice,   // discounted price stored on order
           ac_remaining_paid: false,
         } : {}),
       })
@@ -627,6 +645,59 @@ export default function Book() {
 
           {/* Payment card */}
           {(() => {
+            if (isPackageService && selectedPackage) {
+              // AC Service breakdown
+              const effPrice = getEffectivePackagePrice(selectedPackage)
+              const hasDiscount = effPrice < selectedPackage.price
+              const processingFee = Math.round(AC_BOOKING_BASE * TRANSACTION_FEE_RATE * 100) / 100
+              const bookingTotal = Math.round(AC_BOOKING_BASE * (1 + TRANSACTION_FEE_RATE) * 100) / 100
+              const remaining = Math.max(0, effPrice - AC_ADVANCE)
+              return (
+                <Card className="mb-5">
+                  <p className="font-bold text-slate-50 mb-3">Payment Breakdown</p>
+                  <div className="flex flex-col gap-2 text-sm">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Platform fee</span>
+                      <span>{formatCurrency(AC_PLATFORM_FEE)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Advance payment</span>
+                      <span>{formatCurrency(AC_ADVANCE)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Processing fee (2.5%)</span>
+                      <span>{formatCurrency(processingFee)}</span>
+                    </div>
+                  </div>
+                  <div className="border-t border-slate-700 mt-3 pt-3 flex justify-between items-center">
+                    <span className="font-bold text-slate-50">Pay now</span>
+                    <span className="bg-orange-500 text-white font-black px-3 py-1 rounded-full text-lg">
+                      {formatCurrency(bookingTotal)}
+                    </span>
+                  </div>
+                  <div className="border-t border-slate-700 mt-3 pt-3 flex flex-col gap-2 text-sm">
+                    {hasDiscount && (
+                      <div className="flex justify-between text-green-400 font-semibold">
+                        <span>Package price ({selectedPackage.discount_pct}% off)</span>
+                        <span>
+                          <span className="line-through text-slate-500 mr-1">{formatCurrency(selectedPackage.price)}</span>
+                          {formatCurrency(effPrice)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Remaining after service</span>
+                      <span className="text-slate-200 font-bold">{formatCurrency(remaining)}</span>
+                    </div>
+                  </div>
+                  <p className="text-slate-500 text-xs mt-3">
+                    Pay {formatCurrency(bookingTotal)} now to confirm. Remaining {formatCurrency(remaining)} is collected after the service is complete.
+                  </p>
+                </Card>
+              )
+            }
+
+            // Regular service breakdown
             const discountAmt = promoId && promoDiscount > 0
               ? promoType === 'percent'
                 ? Math.round(BOOKING_FEE * promoDiscount / 100)
@@ -653,7 +724,7 @@ export default function Book() {
                     </div>
                   )}
                   <div className="flex justify-between text-slate-400">
-                    <span>Transaction fee (2.5%)</span>
+                    <span>Processing fee (2.5%)</span>
                     <span>{formatCurrency(Math.round(effectiveFee * TRANSACTION_FEE_RATE * 100) / 100)}</span>
                   </div>
                 </div>
@@ -663,18 +734,8 @@ export default function Book() {
                     {formatCurrency(total)}
                   </span>
                 </div>
-                {isPackageService && selectedPackage && (
-                  <div className="border-t border-slate-700 mt-3 pt-3 flex justify-between items-center">
-                    <span className="text-slate-400 text-sm">Remaining after service</span>
-                    <span className="text-slate-200 font-bold text-sm">
-                      {formatCurrency(selectedPackage.price - effectiveFee)}
-                    </span>
-                  </div>
-                )}
                 <p className="text-slate-500 text-xs mt-3">
-                  {isPackageService
-                    ? 'Pay ₹125 now to confirm. The remaining balance is collected after the service is complete.'
-                    : 'Worker visits, checks the job, then sends you a full quote. Payment will be collected via our secure gateway.'}
+                  Worker visits, checks the job, then sends you a full quote. Payment will be collected via our secure gateway.
                 </p>
               </Card>
             )

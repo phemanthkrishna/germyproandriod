@@ -18,6 +18,13 @@ export const PLATFORM_FEE = 25
 export const BOOKING_FEE = VISITING_CHARGE + PLATFORM_FEE  // ₹125
 export const TRANSACTION_FEE_RATE = 0.025
 
+// AC Service package payment split
+// At booking: ₹25 platform fee + ₹100 advance + 2.5% processing fee
+// After service: package price − ₹100 advance (minus any package discount)
+export const AC_PLATFORM_FEE = 25
+export const AC_ADVANCE = 100
+export const AC_BOOKING_BASE = AC_PLATFORM_FEE + AC_ADVANCE  // ₹125 charged at booking
+
 export const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; bg: string }

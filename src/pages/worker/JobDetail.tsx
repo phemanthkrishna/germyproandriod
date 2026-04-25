@@ -13,7 +13,7 @@ import { supabase } from '../../lib/supabase'
 import { formatDate, formatCurrency } from '../../lib/utils'
 import { haversineDistance } from '../../lib/utils'
 import { ArrowLeft, Upload, Plus, X, Navigation, Phone, Camera } from 'lucide-react'
-import { PACKAGE_SERVICES } from '../../constants'
+import { PACKAGE_SERVICES, AC_ADVANCE } from '../../constants'
 
 const PROXIMITY_KM = 0.2 // 200 meters
 import type { QuoteMaterial } from '../../types'
@@ -747,7 +747,7 @@ export default function JobDetail() {
               <p className="text-amber-400 font-bold text-sm mb-1">⏳ Waiting for customer payment</p>
               <p className="text-slate-400 text-xs">
                 Customer needs to pay{' '}
-                <strong className="text-slate-200">{formatCurrency((order.ac_package_price || 0) - order.booking_amt)}</strong>{' '}
+                <strong className="text-slate-200">{formatCurrency(Math.max(0, (order.ac_package_price || 0) - AC_ADVANCE))}</strong>{' '}
                 remaining balance before you can complete the job.
               </p>
             </div>

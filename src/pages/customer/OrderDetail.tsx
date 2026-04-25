@@ -34,7 +34,7 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 }
 import { supabase } from '../../lib/supabase'
 import { formatDate, formatCurrency } from '../../lib/utils'
-import { TRANSACTION_FEE_RATE, PACKAGE_SERVICES } from '../../constants'
+import { TRANSACTION_FEE_RATE, PACKAGE_SERVICES, AC_ADVANCE } from '../../constants'
 import { ArrowLeft, Star, Phone } from 'lucide-react'
 import { MILESTONES } from '../../hooks/useWorkerProgress'
 import type { Milestone } from '../../hooks/useWorkerProgress'
@@ -428,13 +428,16 @@ export default function CustomerOrderDetail() {
           </div>
           <div className="border-t border-slate-700 mt-3 pt-3 flex flex-col gap-1.5 text-sm">
             <div className="flex justify-between">
-              <span className="text-slate-500">Booking paid</span>
+              <span className="text-slate-500">Paid at booking</span>
               <span className="text-green-400 font-semibold">{formatCurrency(order.booking_amt)} ✓</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-slate-500 text-xs">
+              <span className="text-slate-600">  ↳ platform fee + ₹{AC_ADVANCE} advance + processing</span>
+            </div>
+            <div className="flex justify-between mt-1">
               <span className="text-slate-500">Remaining balance</span>
               <span className={`font-semibold ${order.ac_remaining_paid ? 'text-green-400' : 'text-slate-200'}`}>
-                {formatCurrency((order.ac_package_price || 0) - order.booking_amt)}
+                {formatCurrency(Math.max(0, (order.ac_package_price || 0) - AC_ADVANCE))}
                 {order.ac_remaining_paid ? ' ✓' : ''}
               </span>
             </div>
@@ -452,7 +455,7 @@ export default function CustomerOrderDetail() {
           <div className="flex justify-between items-center mb-4">
             <span className="text-slate-400 text-sm">Remaining balance</span>
             <span className="text-orange-400 font-black text-xl">
-              {formatCurrency((order.ac_package_price || 0) - order.booking_amt)}
+              {formatCurrency(Math.max(0, (order.ac_package_price || 0) - AC_ADVANCE))}
             </span>
           </div>
           <Button size="lg" variant="accent" loading={saving} onClick={handleRemainingPay}>

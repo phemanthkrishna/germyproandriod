@@ -115,6 +115,9 @@ export interface AcServicePackage {
   price: number
   is_active: boolean
   sort_order: number
+  discount_pct: number          // 0 = no discount; e.g. 20 = 20% off package price
+  discount_start?: string | null
+  discount_end?: string | null
   created_at: string
   updated_at: string
 }
