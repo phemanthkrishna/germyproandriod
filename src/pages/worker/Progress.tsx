@@ -176,8 +176,16 @@ export default function WorkerProgress() {
           const isLocked    = status === 'locked'
           const isLast      = i === MILESTONES.length - 1
 
-          const cardBg      = isCompleted ? '#F0FDF4' : isActive ? '#FFF7ED' : '#FAFAFA'
-          const borderColor = isCompleted ? '#10B981' : isActive ? '#F47820' : '#E5E7EB'
+          const isOfficial  = 'isOfficialPartner' in m && m.isOfficialPartner
+          const cardBg      = isOfficial && isCompleted ? '#FFF7ED'
+                            : isOfficial && isActive    ? '#FFF3E6'
+                            : isCompleted               ? '#F0FDF4'
+                            : isActive                  ? '#FFF7ED'
+                            : '#FAFAFA'
+          const borderColor = isOfficial ? '#F47820'
+                            : isCompleted ? '#10B981'
+                            : isActive    ? '#F47820'
+                            : '#E5E7EB'
           const lineColor   = isCompleted ? '#10B981' : isActive ? '#F47820' : '#E5E7EB'
           const isDashed    = isLocked
 
@@ -285,6 +293,20 @@ export default function WorkerProgress() {
                   />
                 )}
 
+                {/* GMP Official Partner banner */}
+                {'isOfficialPartner' in m && m.isOfficialPartner && !isLocked && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    background: 'linear-gradient(90deg, #F47820, #F59E0B)',
+                    borderRadius: 999, padding: '2px 10px', marginBottom: 8,
+                  }}>
+                    <span style={{ fontSize: 11 }}>🏆</span>
+                    <p style={{ fontSize: 10, fontWeight: 800, color: '#fff', letterSpacing: 1, textTransform: 'uppercase' }}>
+                      GMP Official Partner
+                    </p>
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {/* Badge name */}
@@ -305,32 +327,52 @@ export default function WorkerProgress() {
                         <p style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>
                           Job {m.job} — Completed!
                         </p>
-                        <p style={{ fontSize: 11, color: '#10B981', marginTop: 1 }}>
-                          {fmt(m.bonus)} bonus earned
-                        </p>
-                        {claimStatus[m.job] === 'paid' ? (
-                          <p style={{ fontSize: 11, color: '#10B981', fontWeight: 700, marginTop: 5 }}>✓ Bonus Credited</p>
-                        ) : claimStatus[m.job] === 'pending' ? (
-                          <p style={{ fontSize: 11, color: '#F59E0B', marginTop: 5 }}>⏳ Credit pending (24 hrs)</p>
+                        {/* GMP Official Partner special completed state */}
+                        {'isOfficialPartner' in m && m.isOfficialPartner ? (
+                          <div style={{ marginTop: 6 }}>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, background: '#FFF7ED', color: '#F47820', border: '1px solid #F47820', borderRadius: 999, padding: '2px 8px' }}>
+                                🎽 Uniform Issued
+                              </span>
+                              <span style={{ fontSize: 10, fontWeight: 700, background: '#EFF6FF', color: '#3B82F6', border: '1px solid #3B82F6', borderRadius: 999, padding: '2px 8px' }}>
+                                🪪 ID Card Issued
+                              </span>
+                            </div>
+                            {m.bonus > 0 && (
+                              claimStatus[m.job] === 'paid' ? (
+                                <p style={{ fontSize: 11, color: '#10B981', fontWeight: 700 }}>✓ {fmt(m.bonus)} Bonus Credited</p>
+                              ) : claimStatus[m.job] === 'pending' ? (
+                                <p style={{ fontSize: 11, color: '#F59E0B' }}>⏳ {fmt(m.bonus)} credit pending (24 hrs)</p>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); collectBonus(m) }}
+                                  disabled={claimingJob === m.job}
+                                  style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: '#fff', background: '#F47820', border: 'none', borderRadius: 8, padding: '4px 10px', cursor: claimingJob === m.job ? 'default' : 'pointer', opacity: claimingJob === m.job ? 0.6 : 1 }}
+                                >
+                                  {claimingJob === m.job ? 'Requesting…' : `Collect ₹${m.bonus} Bonus`}
+                                </button>
+                              )
+                            )}
+                          </div>
                         ) : (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); collectBonus(m) }}
-                            disabled={claimingJob === m.job}
-                            style={{
-                              marginTop: 6,
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: '#fff',
-                              background: '#10B981',
-                              border: 'none',
-                              borderRadius: 8,
-                              padding: '4px 10px',
-                              cursor: claimingJob === m.job ? 'default' : 'pointer',
-                              opacity: claimingJob === m.job ? 0.6 : 1,
-                            }}
-                          >
-                            {claimingJob === m.job ? 'Requesting…' : 'Collect Bonus'}
-                          </button>
+                          <>
+                            {m.bonus > 0 && <p style={{ fontSize: 11, color: '#10B981', marginTop: 1 }}>{fmt(m.bonus)} bonus earned</p>}
+                            {m.bonus > 0 && (
+                              claimStatus[m.job] === 'paid' ? (
+                                <p style={{ fontSize: 11, color: '#10B981', fontWeight: 700, marginTop: 5 }}>✓ Bonus Credited</p>
+                              ) : claimStatus[m.job] === 'pending' ? (
+                                <p style={{ fontSize: 11, color: '#F59E0B', marginTop: 5 }}>⏳ Credit pending (24 hrs)</p>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); collectBonus(m) }}
+                                  disabled={claimingJob === m.job}
+                                  style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#fff', background: '#10B981', border: 'none', borderRadius: 8, padding: '4px 10px', cursor: claimingJob === m.job ? 'default' : 'pointer', opacity: claimingJob === m.job ? 0.6 : 1 }}
+                                >
+                                  {claimingJob === m.job ? 'Requesting…' : 'Collect Bonus'}
+                                </button>
+                              )
+                            )}
+                          </>
                         )}
                       </>
                     )}
@@ -338,18 +380,33 @@ export default function WorkerProgress() {
                     {isActive && (
                       <>
                         <p style={{ fontSize: 12, color: '#F47820', fontWeight: 600 }}>
-                          Job {m.job} — {m.job - completedJobs} more jobs to go!
+                          Job {m.job} — {m.job - completedJobs} more job{m.job - completedJobs !== 1 ? 's' : ''} to go!
                         </p>
-                        <p style={{ fontSize: 11, color: '#F47820', fontWeight: 700, marginTop: 1 }}>
-                          {fmt(m.bonus)} bonus waiting!
-                        </p>
+                        {'isOfficialPartner' in m && m.isOfficialPartner ? (
+                          <div style={{ marginTop: 4 }}>
+                            <p style={{ fontSize: 11, color: '#F47820', fontWeight: 700 }}>
+                              🎽 Unlock your GMP Uniform &amp; ID Card!
+                            </p>
+                            {m.bonus > 0 && <p style={{ fontSize: 11, color: '#F47820', marginTop: 1 }}>+ {fmt(m.bonus)} cash bonus</p>}
+                          </div>
+                        ) : (
+                          m.bonus > 0 && (
+                            <p style={{ fontSize: 11, color: '#F47820', fontWeight: 700, marginTop: 1 }}>
+                              {fmt(m.bonus)} bonus waiting!
+                            </p>
+                          )
+                        )}
                       </>
                     )}
 
                     {isLocked && (
                       <>
                         <p style={{ fontSize: 12, color: '#9CA3AF' }}>Job {m.job}</p>
-                        <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{fmt(m.bonus)} bonus</p>
+                        {'isOfficialPartner' in m && m.isOfficialPartner ? (
+                          <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>🎽 Uniform + 🪪 ID Card{m.bonus > 0 ? ` + ${fmt(m.bonus)}` : ''}</p>
+                        ) : (
+                          m.bonus > 0 && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{fmt(m.bonus)} bonus</p>
+                        )}
                       </>
                     )}
                   </div>
@@ -432,7 +489,7 @@ export default function WorkerProgress() {
           </div>
         </div>
         <p style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.5 }}>
-          Complete all 40 jobs to earn {fmt(1300)} in bonuses — on top of your regular job income
+          Complete all 50 jobs to earn {fmt(800)} in bonuses + GMP Uniform &amp; ID Card — on top of your regular job income
         </p>
       </div>
 
@@ -484,20 +541,38 @@ export default function WorkerProgress() {
                 })}
               </p>
             )}
-            <div
-              style={{
-                display: 'inline-block',
-                background: '#DCFCE7',
-                color: '#16A34A',
-                fontWeight: 700,
-                fontSize: 14,
-                borderRadius: 999,
-                padding: '6px 18px',
-                marginBottom: 12,
-              }}
-            >
-              {fmt(badgeModal.milestone.bonus)} earned
-            </div>
+            {'isOfficialPartner' in badgeModal.milestone && badgeModal.milestone.isOfficialPartner ? (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, background: '#FFF7ED', color: '#F47820', border: '1px solid #F47820', borderRadius: 999, padding: '4px 12px' }}>
+                    🎽 Official Uniform
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, background: '#EFF6FF', color: '#3B82F6', border: '1px solid #3B82F6', borderRadius: 999, padding: '4px 12px' }}>
+                    🪪 GMP ID Card
+                  </span>
+                </div>
+                {badgeModal.milestone.bonus > 0 && (
+                  <div style={{ display: 'inline-block', background: '#DCFCE7', color: '#16A34A', fontWeight: 700, fontSize: 14, borderRadius: 999, padding: '6px 18px' }}>
+                    + {fmt(badgeModal.milestone.bonus)} cash bonus
+                  </div>
+                )}
+              </div>
+            ) : badgeModal.milestone.bonus > 0 ? (
+              <div
+                style={{
+                  display: 'inline-block',
+                  background: '#DCFCE7',
+                  color: '#16A34A',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  borderRadius: 999,
+                  padding: '6px 18px',
+                  marginBottom: 12,
+                }}
+              >
+                {fmt(badgeModal.milestone.bonus)} earned
+              </div>
+            ) : null}
             <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 20 }}>
               {badgeModal.milestone.desc}
             </p>

@@ -2,12 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 export const MILESTONES = [
-  { job: 1,  bonus: 50,  badge: 'First Fix',    icon: '🔧', color: '#10B981', desc: 'First job done!' },
-  { job: 5,  bonus: 100, badge: 'Live Wire',    icon: '⚡', color: '#3B82F6', desc: '5 jobs strong!' },
-  { job: 10, bonus: 150, badge: 'Pro Worker',   icon: '🏅', color: '#F59E0B', desc: 'Double digits!' },
-  { job: 20, bonus: 200, badge: 'Top Pro',      icon: '🌟', color: '#F47820', desc: 'Top of the platform!' },
-  { job: 30, bonus: 300, badge: 'Elite',        icon: '🔥', color: '#EF4444', desc: 'Elite worker!' },
-  { job: 40, bonus: 500, badge: 'Local Legend', icon: '👑', color: '#8B5CF6', desc: "Bobbili's best!" },
+  { job: 1,  bonus: 0,   badge: 'First Step',          icon: '🔧', color: '#10B981', desc: 'Your first job — the journey begins!', isOfficialPartner: false },
+  { job: 5,  bonus: 50,  badge: 'Getting Started',     icon: '⚡', color: '#3B82F6', desc: '5 jobs done — you\'re finding your rhythm!', isOfficialPartner: false },
+  { job: 10, bonus: 100, badge: 'GMP Official Partner', icon: '🏆', color: '#F47820', desc: 'You are now a GetMyPro Official Working Partner! Your uniform and ID card are on the way.', isOfficialPartner: true },
+  { job: 25, bonus: 150, badge: 'Rising Pro',          icon: '🌟', color: '#F59E0B', desc: '25 jobs strong — a true professional!', isOfficialPartner: false },
+  { job: 50, bonus: 500, badge: 'Elite Partner',       icon: '👑', color: '#8B5CF6', desc: 'Elite status — you are the best of GetMyPro!', isOfficialPartner: false },
 ] as const
 
 export type Milestone = typeof MILESTONES[number]
